@@ -1,53 +1,6 @@
 # Godelion - Go & Docker Container Management System
 
-[English](#english) | [中文](#中文)
-
----
-
-<a name="english"></a>
-## 🇬🇧 English
-
-### Overview
-**Godelion** is a lightweight, high-performance Docker container management system. It aims to provide an intuitive web-based interface for managing Docker containers, images, networks, and volumes, simplifying the deployment and operation of containerized applications.
-
-### Current Progress
-We have completed the foundational scaffolding and core structural design of the project.
-
-- [x] **Project Initialization**: Frontend and backend project structures created.
-- [x] **Frontend Architecture**: Built with Vue 3 + TypeScript + Vite, integrated with Tailwind CSS for styling, and Vue Router for routing.
-- [x] **Backend Architecture**: Built with Go, providing RESTful API services. Basic database connection and middleware setups are in place.
-- [x] **Core Scripting**: Created `start-godelion.sh` for one-click concurrent startup of both frontend and backend services.
-- [x] **Version Control**: Cleaned up unnecessary files (e.g., `node_modules`, binary builds, editor configurations) and successfully pushed the clean codebase to GitHub.
-- [ ] **Docker API Integration**: Implementing Go backend communication with the Docker Daemon.
-- [ ] **Frontend Dashboard**: Developing pages for container status, image management, and network configuration.
-
-### System Architecture
-The project adopts a modern **Frontend-Backend Separation** architecture, with a clear flow of requests from the user to the underlying Docker containers:
-
-```mermaid
-flowchart TD
-    A[Visitor / User Browser] -->|HTTP Request| B(Frontend: Vue 3 + Vite)
-    B -->|API / WebSocket| C(Proxy: Go API Service)
-    C -->|Docker SDK| D(Docker Daemon)
-    D -->|Manage/Monitor| E{Target Docker Container}
-```
-
-1. **Frontend (Web UI)**
-   - **Tech Stack**: Vue 3 (Composition API), TypeScript, Vite, Tailwind CSS.
-   - **Role**: Provides the user interface for monitoring and managing Docker resources visually.
-   - **Directory**: `src/` (Vue components, views, routers, store), `public/` (static assets).
-
-2. **Backend (API Service)**
-   - **Tech Stack**: Go (Golang).
-   - **Role**: Handles business logic, interacts with the Docker engine via Docker SDK for Go, and provides RESTful APIs for the frontend.
-   - **Directory**: `api/` (contains `controllers`, `models`, `services`, `middleware`, `db`, etc.).
-
-3. **Data Storage**
-   - **Tech Stack**: SQLite (currently indicated by `godelion.db`).
-   - **Role**: Stores system configurations, user accounts, and operational logs locally without needing a heavy database server.
-
-4. **Startup & Deployment**
-   - **Script**: `start-godelion.sh` manages the simultaneous execution of the Vite dev server and the Go API server.
+[中文](#中文) | [English](#english)
 
 ---
 
@@ -95,3 +48,50 @@ flowchart TD
 
 4. **启动与部署**
    - **脚本管理**：通过 `start-godelion.sh` 统一管理 Vite 开发服务器和 Go API 服务器的并发启动。
+
+---
+
+<a name="english"></a>
+## 🇬🇧 English
+
+### Overview
+**Godelion** is a lightweight, high-performance Docker container management system. It aims to provide an intuitive web-based interface for managing Docker containers, images, networks, and volumes, simplifying the deployment and operation of containerized applications.
+
+### Current Progress
+We have completed the foundational scaffolding and core structural design of the project.
+
+- [x] **Project Initialization**: Frontend and backend project structures created.
+- [x] **Frontend Architecture**: Built with Vue 3 + TypeScript + Vite, integrated with Tailwind CSS for styling, and Vue Router for routing.
+- [x] **Backend Architecture**: Built with Go, providing RESTful API services. Basic database connection and middleware setups are in place.
+- [x] **Core Scripting**: Created `start-godelion.sh` for one-click concurrent startup of both frontend and backend services.
+- [x] **Version Control**: Cleaned up unnecessary files (e.g., `node_modules`, binary builds, editor configurations) and successfully pushed the clean codebase to GitHub.
+- [ ] **Docker API Integration**: Implementing Go backend communication with the Docker Daemon.
+- [ ] **Frontend Dashboard**: Developing pages for container status, image management, and network configuration.
+
+### System Architecture
+The project adopts a modern **Frontend-Backend Separation** architecture, with a clear flow of requests from the user to the underlying Docker containers:
+
+```mermaid
+flowchart TD
+    A[Visitor / User Browser] -->|HTTP Request| B(Frontend: Vue 3 + Vite)
+    B -->|API / WebSocket| C(Proxy: Go API Service)
+    C -->|Docker SDK| D(Docker Daemon)
+    D -->|Manage/Monitor| E{Target Docker Container}
+```
+
+1. **Frontend (Web UI)**
+   - **Tech Stack**: Vue 3 (Composition API), TypeScript, Vite, Tailwind CSS.
+   - **Role**: Provides the user interface for monitoring and managing Docker resources visually.
+   - **Directory**: `src/` (Vue components, views, routers, store), `public/` (static assets).
+
+2. **Backend (API Service)**
+   - **Tech Stack**: Go (Golang).
+   - **Role**: Handles business logic, interacts with the Docker engine via Docker SDK for Go, and provides RESTful APIs for the frontend.
+   - **Directory**: `api/` (contains `controllers`, `models`, `services`, `middleware`, `db`, etc.).
+
+3. **Data Storage**
+   - **Tech Stack**: SQLite (currently indicated by `godelion.db`).
+   - **Role**: Stores system configurations, user accounts, and operational logs locally without needing a heavy database server.
+
+4. **Startup & Deployment**
+   - **Script**: `start-godelion.sh` manages the simultaneous execution of the Vite dev server and the Go API server.
