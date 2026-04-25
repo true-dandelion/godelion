@@ -22,7 +22,15 @@ We have completed the foundational scaffolding and core structural design of the
 - [ ] **Frontend Dashboard**: Developing pages for container status, image management, and network configuration.
 
 ### System Architecture
-The project adopts a modern **Frontend-Backend Separation** architecture:
+The project adopts a modern **Frontend-Backend Separation** architecture, with a clear flow of requests from the user to the underlying Docker containers:
+
+```text
+Visitor (User Browser)
+ └──> Frontend (Vue 3 + Vite)
+       └──> Proxy (Go API Service)
+             └──> Docker Daemon (Host Machine)
+                   └──> Target Docker Container
+```
 
 1. **Frontend (Web UI)**
    - **Tech Stack**: Vue 3 (Composition API), TypeScript, Vite, Tailwind CSS.
@@ -61,7 +69,15 @@ The project adopts a modern **Frontend-Backend Separation** architecture:
 - [ ] **前端控制台**：开发容器状态监控、镜像管理、网络配置等页面。
 
 ### 系统架构
-项目采用现代化的**前后端分离**架构：
+项目采用现代化的**前后端分离**架构。整体请求流程从用户侧出发，通过代理层最终访问到 Docker 容器，其树状访问流程如下：
+
+```text
+访问者 (用户浏览器)
+ └──> 前端 (Vue 3 + Vite)
+       └──> 代理服务 (Go API 后端)
+             └──> Docker 守护进程 (宿主机)
+                   └──> 目标 Docker 容器
+```
 
 1. **前端 (Web UI)**
    - **技术栈**：Vue 3 (Composition API), TypeScript, Vite, Tailwind CSS。
