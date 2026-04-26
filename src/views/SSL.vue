@@ -30,9 +30,33 @@
           </template>
         </el-table-column>
         
-        <el-table-column prop="updated_at" label="更新时间" min-width="180">
+        <el-table-column prop="issued_at" label="发布时间" min-width="160">
           <template #default="{ row }">
-            <span class="text-zinc-400">{{ new Date(row.updated_at).toLocaleString() }}</span>
+            <span class="text-zinc-400">{{ row.issued_at ? new Date(row.issued_at).toLocaleDateString() : '-' }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="expires_at" label="过期时间" min-width="180">
+          <template #default="{ row }">
+            <div class="flex items-center gap-2" v-if="row.expires_at">
+              <span :class="isExpired(row.expires_at) ? 'text-red-400 font-bold' : 'text-zinc-400'">
+                {{ new Date(row.expires_at).toLocaleDateString() }}
+              </span>
+              <el-tag v-if="isExpired(row.expires_at)" size="small" type="danger" class="!bg-red-500/10 !border-red-500/20 !text-red-400">已过期</el-tag>
+              <el-tag v-else-if="getDaysLeft(row.expires_at) <= 30" size="small" type="warning" class="!bg-yellow-500/10 !border-yellow-500/20 !text-yellow-400">
+                剩 {{ getDaysLeft(row.expires_at) }} 天
+              </el-tag>
+              <el-tag v-else size="small" type="success" class="!bg-green-500/10 !border-green-500/20 !text-green-400">
+                正常
+              </el-tag>
+            </div>
+            <span v-else class="text-zinc-500">-</span>
+          </template>
+        </el-table-column>
+        
+        <el-table-column prop="updated_at" label="更新时间" min-width="160">
+          <template #default="{ row }">
+            <span class="text-zinc-500 text-sm">{{ new Date(row.updated_at).toLocaleString() }}</span>
           </template>
         </el-table-column>
 
@@ -179,6 +203,17 @@ onMounted(() => {
 const filteredCerts = computed(() => {
   return certs.value.filter(c => c.domain.includes(searchDomain.value))
 })
+
+const getDaysLeft = (dateString: string) => {
+  const expires = new Date(dateString).getTime()
+  const now = new Date().getTime()
+  const diff = expires - now
+  return Math.ceil(diff / (1000 * 60 * 60 * 24))
+}
+
+const isExpired = (dateString: string) => {
+  return getDaysLeft(dateString) < 0
+}
 
 const resetForm = () => {
   certForm.domain = ''

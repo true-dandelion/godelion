@@ -55,6 +55,8 @@ type SSLCertificate struct {
         Domain      string         `gorm:"not null" json:"domain"`
         CertContent string         `gorm:"type:text" json:"cert_content"`
         KeyContent  string         `gorm:"type:text" json:"key_content"`
+        IssuedAt    time.Time      `json:"issued_at"` // Parsed from certificate
+        ExpiresAt   time.Time      `json:"expires_at"` // Parsed from certificate
         CreatedAt   time.Time      `json:"created_at"`
         UpdatedAt   time.Time      `json:"updated_at"`
         DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
