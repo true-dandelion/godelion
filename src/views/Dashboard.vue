@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <!-- Header Summary -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
       <el-card shadow="never" class="!bg-zinc-900 !border-zinc-800">
         <div class="flex items-center justify-between">
           <div>
@@ -73,6 +73,24 @@
         </div>
         <div class="mt-4 w-full">
           <el-progress :percentage="memUsage" :stroke-width="4" :show-text="false" color="#a855f7" />
+        </div>
+      </el-card>
+
+      <el-card shadow="never" class="!bg-zinc-900 !border-zinc-800">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-zinc-400 text-sm font-medium mb-1">系统负载</p>
+            <h3 class="text-3xl font-bold text-white tracking-tight">{{ sysLoad }}<span class="text-lg text-zinc-500 font-normal"></span></h3>
+          </div>
+          <div class="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center">
+            <el-icon :size="24" class="text-indigo-500"><DataLine /></el-icon>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center text-xs text-zinc-500">
+          <span class="text-indigo-400 flex items-center mr-2">
+            <div class="w-1.5 h-1.5 rounded-full bg-indigo-400 mr-1"></div>
+            平稳运行中
+          </span>
         </div>
       </el-card>
     </div>
@@ -166,18 +184,14 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getWorkloads, getGateways, getAuditLogs } from '../api'
 import {
-  VideoPlay,
   Connection,
-  Coin,
   Cpu,
-  TopRight,
   Box,
-  Link,
-  Upload,
   Setting,
   Lock,
   Folder,
-  Odometer
+  Odometer,
+  DataLine
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -190,6 +204,7 @@ const normalGatewayCount = ref(0)
 
 const cpuUsage = ref(Math.floor(Math.random() * 20) + 1)
 const memUsage = ref(Math.floor(Math.random() * 40) + 20)
+const sysLoad = ref((Math.random() * 2 + 0.5).toFixed(2))
 
 const activities = ref<any[]>([])
 
@@ -267,6 +282,9 @@ onMounted(() => {
     cpuUsage.value = Math.round(cpuUsage.value * 10) / 10
     memUsage.value = Math.max(10, Math.min(90, memUsage.value + (Math.random() * 4 - 2)))
     memUsage.value = Math.round(memUsage.value * 10) / 10
+    
+    let load = parseFloat(sysLoad.value) + (Math.random() * 0.4 - 0.2)
+    sysLoad.value = Math.max(0.1, load).toFixed(2)
   }, 5000)
 })
 </script>
