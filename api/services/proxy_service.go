@@ -186,9 +186,45 @@ func ProxyHandler(c *fiber.Ctx) error {
 func GetTLSConfig() *tls.Config {
 	return &tls.Config{
 		GetCertificate: func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			serverName := hello.ServerName
+			
+			// If no SNI (Server Name Indication) is provided by the client,
+			// or it's an IP address access without domain, we cannot strictly match a domain cert.
+			// We will try to find a wildcard cert or a default cert if necessary, but for now we reject or find ANY valid cert.
+			if serverName == "" {
+				// For direct IP access, try to find a gateway rule that has empty or IP domain
+				var rule models.GatewayRule
+				result := db.DB.Where("tls_enabled = ?", true).First(&rule)
+				if result.Error == nil {
+					var anyCert models.SSLCertificate
+					if rule.SSLCertID != "" {
+						db.DB.Where("id = ?", rule.SSLCertID).First(&anyCert)
+					} else {
+						db.DB.First(&anyCert)
+					}
+					if anyCert.CertContent != "" {
+						cert, err := tls.X509KeyPair([]byte(anyCert.CertContent), []byte(anyCert.KeyContent))
+						if err == nil {
+							return &cert, nil
+						}
+					}
+				}
+				return nil, fmt.Errorf("no SNI server name provided, and no fallback certificate available")
+			}
+
 			var rule models.GatewayRule
-			if err := db.DB.Where("domain = ? AND tls_enabled = ?", hello.ServerName, true).First(&rule).Error; err != nil {
-				return nil, fmt.Errorf("no certificate found for %s", hello.ServerName)
+			result := db.DB.Where("domain = ? AND tls_enabled = ?", serverName, true).First(&rule)
+			if result.Error != nil {
+				// If exact match fails, see if we have a wildcard cert that matches
+				parts := strings.SplitN(serverName, ".", 2)
+				if len(parts) == 2 {
+					wildcardDomain := "*." + parts[1]
+					result = db.DB.Where("domain = ? AND tls_enabled = ?", wildcardDomain, true).First(&rule)
+				}
+			}
+			
+			if result.Error != nil {
+				return nil, fmt.Errorf("no active gateway rule found for %s", serverName)
 			}
 			
 			var sslCert models.SSLCertificate
@@ -197,13 +233,23 @@ func GetTLSConfig() *tls.Config {
 					return nil, err
 				}
 			} else {
-				if err := db.DB.Where("domain = ?", hello.ServerName).First(&sslCert).Error; err != nil {
-					// Fallback to old path based cert if SSLCertificate not found
-					cert, err := tls.LoadX509KeyPair(rule.CertPath, rule.KeyPath)
-					if err != nil {
-						return nil, err
+				// Try to find a cert by exact domain name
+				if err := db.DB.Where("domain = ?", serverName).First(&sslCert).Error; err != nil {
+					// If exact domain fails, try wildcard matching for certs
+					parts := strings.SplitN(serverName, ".", 2)
+					if len(parts) == 2 {
+						wildcardDomain := "*." + parts[1]
+						err = db.DB.Where("domain = ?", wildcardDomain).First(&sslCert).Error
 					}
-					return &cert, nil
+					
+					if err != nil {
+						// Fallback to old path based cert if SSLCertificate not found
+						cert, err := tls.LoadX509KeyPair(rule.CertPath, rule.KeyPath)
+						if err != nil {
+							return nil, err
+						}
+						return &cert, nil
+					}
 				}
 			}
 			
