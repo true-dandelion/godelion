@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	
 	"godelion/db"
@@ -13,14 +14,16 @@ import (
 )
 
 func CreateGatewayRule(c *fiber.Ctx) error {
-	var payload struct {
-		Domain      string `json:"domain"`
-		ListenPorts string `json:"listen_ports"`
-		TargetURLs  string `json:"target_urls"`
-		TLSEnabled  bool   `json:"tls_enabled"`
-	}
+        var payload struct {
+                Domain      string `json:"domain"`
+                ListenPorts string `json:"listen_ports"`
+                TargetURLs  string `json:"target_urls"`
+                TLSEnabled  bool   `json:"tls_enabled"`
+                ContainerID string `json:"container_id"`
+                TargetPort  int    `json:"target_port"`
+        }
 
-	if err := c.BodyParser(&payload); err != nil {
+        if err := c.BodyParser(&payload); err != nil {
                 return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
         }
 
@@ -44,6 +47,8 @@ func CreateGatewayRule(c *fiber.Ctx) error {
 		ListenPorts: payload.ListenPorts,
 		TargetURLs:  payload.TargetURLs,
 		TLSEnabled:  payload.TLSEnabled,
+		ContainerID: payload.ContainerID,
+		TargetPort:  payload.TargetPort,
 	}
 
 	if err := db.DB.Create(&rule).Error; err != nil {
@@ -79,11 +84,23 @@ func ListGatewayRules(c *fiber.Ctx) error {
 
 	// 1. Add standard domain gateway rules
 	for _, r := range rules {
+		targetDisplay := r.TargetURLs
+		if r.ContainerID != "" {
+			var c models.Container
+			if err := db.DB.First(&c, "id = ?", r.ContainerID).Error; err == nil {
+				targetDisplay = "Container: " + c.Name + " (" + fmt.Sprintf("%d", r.TargetPort) + ")"
+			} else {
+				targetDisplay = "Container: " + r.ContainerID + " (Not Found)"
+			}
+		} else if r.TargetURLs == "" && r.TargetPort > 0 {
+			targetDisplay = fmt.Sprintf("127.0.0.1:%d", r.TargetPort)
+		}
+
 		unifiedRules = append(unifiedRules, UnifiedRule{
 			ID:            r.ID,
 			Domain:        r.Domain,
 			ListenPorts:   r.ListenPorts,
-			TargetURLs:    r.TargetURLs,
+			TargetURLs:    targetDisplay,
 			TLSEnabled:    r.TLSEnabled,
 			IsPortMapping: false,
 		})

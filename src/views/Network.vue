@@ -116,13 +116,51 @@
         <el-form-item label="访问域名" required>
           <el-input v-model="ruleForm.domain" placeholder="例如: api.godelion.com" />
         </el-form-item>
-        <el-form-item label="端口（支持多个）" prop="listen_ports" required>
+        <el-form-item label="监听端口" prop="listen_ports" required>
           <el-input v-model="ruleForm.listen_ports" placeholder="如: 80, 443, 8080" />
         </el-form-item>
 
-        <el-form-item label="目标地址/端口" prop="target_urls" required>
-          <el-input v-model="ruleForm.target_urls" placeholder="如: ip:端口，域名:端口（支持多个，逗号隔开）" />
+        <el-form-item label="目标类型" required>
+          <el-radio-group v-model="targetType" class="!w-full flex">
+            <el-radio label="custom">自定义地址</el-radio>
+            <el-radio label="container">选择容器</el-radio>
+          </el-radio-group>
         </el-form-item>
+
+        <template v-if="targetType === 'custom'">
+          <el-form-item label="目标地址" prop="target_urls" required>
+            <el-input v-model="ruleForm.target_urls" placeholder="如: 127.0.0.1:3000 (支持多个，逗号隔开)" />
+          </el-form-item>
+        </template>
+
+        <template v-else>
+          <el-form-item label="目标容器" required>
+            <el-select v-model="selectedContainer" placeholder="请选择目标容器" class="w-full" @change="handleContainerSelect">
+              <el-option
+                v-for="c in containersList"
+                :key="c.id"
+                :label="c.name"
+                :value="c.id"
+              >
+                <div class="flex justify-between items-center">
+                  <span>{{ c.name }}</span>
+                  <span class="text-zinc-500 text-xs ml-2">{{ c.parsedPorts?.map((p: any) => p.container).join(', ') || '无映射' }}</span>
+                </div>
+              </el-option>
+            </el-select>
+          </el-form-item>
+          
+          <el-form-item label="容器端口" required v-if="selectedContainer">
+            <el-select v-model="selectedContainerPort" placeholder="选择要转发到的容器内端口" class="w-full">
+              <el-option
+                v-for="port in availableContainerPorts"
+                :key="port"
+                :label="port"
+                :value="port"
+              />
+            </el-select>
+          </el-form-item>
+        </template>
 
         <el-form-item label="HTTPS 开关" prop="tls_enabled">
           <div class="flex flex-col gap-1 w-full">
@@ -145,7 +183,7 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getGateways, createGateway, deleteGateway } from '../api'
+import { getGateways, createGateway, deleteGateway, getWorkloads } from '../api'
 import {
   Search,
   Plus,
@@ -158,6 +196,12 @@ const loading = ref(false)
 const searchDomain = ref('')
 const protocolFilter = ref('')
 const ruleDialogVisible = ref(false)
+
+const targetType = ref('custom')
+const containersList = ref<any[]>([])
+const selectedContainer = ref('')
+const selectedContainerPort = ref('')
+const availableContainerPorts = ref<string[]>([])
 
 const ruleForm = reactive({
   domain: '',
@@ -184,8 +228,40 @@ const fetchRules = async () => {
   }
 }
 
+const fetchContainers = async () => {
+  try {
+    const res = await getWorkloads()
+    if (res.code === 200) {
+      containersList.value = (res.data || []).map((c: any) => {
+        try {
+          const parsed = typeof c.ports === 'string' && c.ports ? JSON.parse(c.ports) : []
+          c.parsedPorts = Array.isArray(parsed) ? parsed.filter((p: any) => p.container) : []
+        } catch {
+          c.parsedPorts = []
+        }
+        return c
+      })
+    }
+  } catch (error) {
+    console.error('获取容器列表异常', error)
+  }
+}
+
+const handleContainerSelect = (val: string) => {
+  const container = containersList.value.find(c => c.id === val)
+  if (container) {
+    availableContainerPorts.value = container.parsedPorts.map((p: any) => p.container)
+    if (availableContainerPorts.value.length > 0) {
+      selectedContainerPort.value = availableContainerPorts.value[0]
+    } else {
+      selectedContainerPort.value = ''
+    }
+  }
+}
+
 onMounted(() => {
   fetchRules()
+  fetchContainers()
 })
 
 const filteredRules = computed(() => {
@@ -199,17 +275,31 @@ const filteredRules = computed(() => {
 })
 
 const handleAddRule = async () => {
-  if (!ruleForm.domain || !ruleForm.listen_ports || !ruleForm.target_urls) {
+  if (targetType.value === 'container') {
+    if (!selectedContainer.value) {
+      ElMessage.warning('请选择目标容器')
+      return
+    }
+    if (!selectedContainerPort.value) {
+      ElMessage.warning('请选择目标容器的内部端口')
+      return
+    }
+  }
+
+  if (targetType.value === 'custom' && (!ruleForm.domain || !ruleForm.listen_ports || !ruleForm.target_urls)) {
     ElMessage.warning('请填写完整的路由规则')
     return
   }
+  
   loading.value = true
   try {
     const payload = {
       domain: ruleForm.domain,
       listen_ports: ruleForm.listen_ports,
-      target_urls: ruleForm.target_urls,
-      tls_enabled: ruleForm.tls_enabled
+      target_urls: targetType.value === 'custom' ? ruleForm.target_urls : '',
+      tls_enabled: ruleForm.tls_enabled,
+      container_id: targetType.value === 'container' ? selectedContainer.value : '',
+      target_port: targetType.value === 'container' ? parseInt(selectedContainerPort.value) : 0
     }
     const res = await createGateway(payload)
     if (res.code === 200) {
@@ -219,6 +309,9 @@ const handleAddRule = async () => {
       ruleForm.listen_ports = '80, 443'
       ruleForm.target_urls = ''
       ruleForm.tls_enabled = false
+      targetType.value = 'custom'
+      selectedContainer.value = ''
+      selectedContainerPort.value = ''
       fetchRules()
     } else {
       ElMessage.error(res.message || '添加失败')

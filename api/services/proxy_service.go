@@ -60,7 +60,13 @@ func UpdateProxyRule(rule models.GatewayRule) {
 				targets = append(targets, t)
 			}
 		}
-	} else if rule.TargetPort > 0 {
+	}
+	
+	// If container target is specified, we resolve it dynamically.
+	// We can inject a special target marker that ProxyHandler will resolve at runtime.
+	if rule.ContainerID != "" && rule.TargetPort > 0 {
+		targets = append(targets, fmt.Sprintf("@container:%s:%d", rule.ContainerID, rule.TargetPort))
+	} else if rule.TargetPort > 0 && rule.TargetURLs == "" {
 		// Legacy mapping fallback
 		targets = append(targets, fmt.Sprintf("127.0.0.1:%d", rule.TargetPort))
 	}
@@ -137,13 +143,35 @@ func ProxyHandler(c *fiber.Ctx) error {
 	}
 
 	targetStr := pool.Next()
-	if targetStr == "" {
-		return c.Status(502).SendString("Bad Gateway: No targets available")
-	}
+        if targetStr == "" {
+                return c.Status(502).SendString("Bad Gateway: No targets available")
+        }
 
-	if !strings.HasPrefix(targetStr, "http://") && !strings.HasPrefix(targetStr, "https://") {
-		targetStr = "http://" + targetStr
-	}
+        // Handle dynamic container resolution
+        if strings.HasPrefix(targetStr, "@container:") {
+                parts := strings.SplitN(targetStr, ":", 3) // @container:uuid:port
+                if len(parts) == 3 {
+                        containerID := parts[1]
+                        containerPort := parts[2]
+                        
+                        // Find the Docker container ID from the DB UUID
+                        var container models.Container
+                        if err := db.DB.First(&container, "id = ?", containerID).Error; err == nil && container.DockerID != "" {
+                                ip := getContainerIP(container.DockerID)
+                                if ip != "" {
+                                        targetStr = fmt.Sprintf("http://%s:%s", ip, containerPort)
+                                } else {
+                                        return c.Status(502).SendString("Bad Gateway: Container IP not found")
+                                }
+                        } else {
+                                return c.Status(502).SendString("Bad Gateway: Container not running or not found")
+                        }
+                }
+        }
+
+        if !strings.HasPrefix(targetStr, "http://") && !strings.HasPrefix(targetStr, "https://") {
+                targetStr = "http://" + targetStr
+        }
 
 	targetURL, _ := url.Parse(targetStr)
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
