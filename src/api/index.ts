@@ -8,6 +8,11 @@ export interface ApiResponse<T = any> {
 
 export const login = (data: any) => request.post<any, ApiResponse>('/auth/login', data)
 
+// User Profile
+export const getProfile = () => request.get<any, ApiResponse>('/user/profile')
+export const updateProfile = (data: any) => request.put<any, ApiResponse>('/user/profile', data)
+
+// Workloads
 export const getWorkloads = () => request.get<any, ApiResponse>('/workloads')
 export const createWorkload = (data: any) => request.post<any, ApiResponse>('/workloads', data, { timeout: 300000 }) // Increase timeout to 5 mins for Docker image pull
 export const startWorkload = (id: string) => request.post<any, ApiResponse>(`/workloads/${id}/start`, {}, { timeout: 60000 })

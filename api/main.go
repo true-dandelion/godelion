@@ -38,10 +38,15 @@ func main() {
 	api := app.Group("/sys/v1")
 
 	// Auth
-	api.Post("/auth/login", controllers.Login)
+        api.Post("/auth/login", controllers.Login)
 
-	// Protected routes
-	protected := api.Use(middleware.AuthRequired())
+        // Protected routes
+        protected := api.Use(middleware.AuthRequired())
+
+        // User Profile
+        user := protected.Group("/user")
+        user.Get("/profile", controllers.GetProfile)
+        user.Put("/profile", controllers.UpdateProfile)
 
 	// Workloads
         workloads := protected.Group("/workloads")

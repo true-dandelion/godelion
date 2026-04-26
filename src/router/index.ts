@@ -58,10 +58,10 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'Docker 配置' }
       },
       {
-        path: 'system',
-        name: 'System',
-        component: () => import('../views/docker/Status.vue'),
-        meta: { title: '系统设置' }
+        path: 'settings',
+        name: 'Settings',
+        component: () => import('../views/Settings.vue'),
+        meta: { title: '设置' }
       }
     ]
   }

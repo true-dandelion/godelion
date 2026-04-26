@@ -52,9 +52,9 @@
           <el-menu-item index="/docker/config">配置</el-menu-item>
         </el-sub-menu>
 
-        <el-menu-item index="/system">
+        <el-menu-item index="/settings">
           <el-icon><Setting /></el-icon>
-          <template #title>系统设置</template>
+          <template #title>设置</template>
         </el-menu-item>
       </el-menu>
 
@@ -150,6 +150,8 @@ const handleCommand = (command: string) => {
       ElMessage.success('已退出登录')
       router.push('/login')
     }).catch(() => {})
+  } else if (command === 'profile') {
+    router.push('/settings')
   }
 }
 </script>
