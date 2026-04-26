@@ -3,8 +3,12 @@ package services
 import (
 	"crypto/tls"
 	"fmt"
+	"net"
+	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -14,6 +18,27 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/valyala/fasthttp/fasthttpadaptor"
 )
+
+// Read the nice error HTML template from public folder
+func getNiceErrorPage(code, host string) string {
+	templatePath := filepath.Join("..", "public", "error.html")
+	content, err := os.ReadFile(templatePath)
+	if err != nil {
+		// Fallback to basic text if template is missing
+		return fmt.Sprintf("Error %s: Gateway proxy error for %s", code, host)
+	}
+	
+	// Use a simple replace or let the client side JS handle it?
+	// The JS handles it via query params or data-attributes, but we can't pass query params easily on a direct body write.
+	// So we will inject the code and host directly into the HTML using simple string replace.
+	html := string(content)
+	
+	// Instead of writing a complex template parser, we just inject a script at the top to set the JS variables
+	injection := fmt.Sprintf(`<script>window.SERVER_ERROR_CODE = "%s"; window.SERVER_ERROR_HOST = "%s";</script>`, code, host)
+	html = strings.Replace(html, "<head>", "<head>\n    "+injection, 1)
+	
+	return html
+}
 
 type TargetPool struct {
 	Targets []string
@@ -135,16 +160,39 @@ func ProxyHandler(c *fiber.Ctx) error {
 
         proxyMutex.RLock()
         pool, exists := proxyTargetPools[key]
+        
+        // Fallback to wildcard matching
+        if !exists {
+                parts := strings.SplitN(host, ".", 2)
+                if len(parts) == 2 {
+                        wildcardHost := "*." + parts[1]
+                        pool, exists = proxyTargetPools[wildcardHost+":"+port]
+                }
+        }
+        
         proxyMutex.RUnlock()
-
-	if !exists {
-		// Not found, continue to next handler (e.g., Godelion UI)
-		return c.Next()
-	}
+        
+        if !exists {
+                // To protect the system, we only allow access to the Godelion UI via specific conditions,
+                // otherwise we return a 404 proxy error page.
+                // For safety and to prevent exposing the UI on wildcard domains, if a user accesses via a domain
+                // that has no gateway rule, we block it.
+                // We allow access if the host is an IP address or localhost.
+                isIP := false
+                if net.ParseIP(host) != nil || host == "localhost" {
+                        isIP = true
+                }
+                
+                if !isIP {
+                        return c.Status(404).Type("html").SendString(getNiceErrorPage("404", host))
+                }
+                
+                return c.Next()
+        }
 
 	targetStr := pool.Next()
         if targetStr == "" {
-                return c.Status(502).SendString("Bad Gateway: No targets available")
+                return c.Status(502).Type("html").SendString(getNiceErrorPage("502", host))
         }
 
         // Handle dynamic container resolution
@@ -161,10 +209,10 @@ func ProxyHandler(c *fiber.Ctx) error {
                                 if ip != "" {
                                         targetStr = fmt.Sprintf("http://%s:%s", ip, containerPort)
                                 } else {
-                                        return c.Status(502).SendString("Bad Gateway: Container IP not found")
+                                        return c.Status(502).Type("html").SendString(getNiceErrorPage("502", host))
                                 }
                         } else {
-                                return c.Status(502).SendString("Bad Gateway: Container not running or not found")
+                                return c.Status(502).Type("html").SendString(getNiceErrorPage("502", host))
                         }
                 }
         }
@@ -175,6 +223,13 @@ func ProxyHandler(c *fiber.Ctx) error {
 
         targetURL, _ := url.Parse(targetStr)
         proxy := httputil.NewSingleHostReverseProxy(targetURL)
+        
+        // Setup error handler for the proxy to show nice page when target is down
+        proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {
+                rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+                rw.WriteHeader(http.StatusBadGateway)
+                rw.Write([]byte(getNiceErrorPage("502", req.Host)))
+        }
 
         // Use fasthttp adaptor to serve httputil.ReverseProxy
         handler := fasthttpadaptor.NewFastHTTPHandler(proxy)

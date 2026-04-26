@@ -229,11 +229,15 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 						if ip != "" {
 							targetStr = fmt.Sprintf("http://%s:%s", ip, containerPort)
 						} else {
-							http.Error(w, "Bad Gateway: Container IP not found", http.StatusBadGateway)
+							w.Header().Set("Content-Type", "text/html; charset=utf-8")
+							w.WriteHeader(http.StatusBadGateway)
+							w.Write([]byte(getNiceErrorPage("502", r.Host)))
 							return
 						}
 					} else {
-						http.Error(w, "Bad Gateway: Container not running or not found", http.StatusBadGateway)
+						w.Header().Set("Content-Type", "text/html; charset=utf-8")
+						w.WriteHeader(http.StatusBadGateway)
+						w.Write([]byte(getNiceErrorPage("502", r.Host)))
 						return
 					}
 				}
@@ -250,6 +254,13 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 				req.URL.Scheme = targetURL.Scheme
 				req.URL.Host = targetURL.Host
 				req.Header.Set("X-Forwarded-Host", req.Host)
+			}
+			
+			// Customize error handler to show nice pages instead of blank responses when target is down
+			proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {
+				rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+				rw.WriteHeader(http.StatusBadGateway)
+				rw.Write([]byte(getNiceErrorPage("502", req.Host)))
 			}
 			
 			proxy.ServeHTTP(w, r)
@@ -281,6 +292,12 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 						req.Header.Set("X-Forwarded-Host", req.Host)
 					}
 					
+					proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {
+						rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+						rw.WriteHeader(http.StatusBadGateway)
+						rw.Write([]byte(getNiceErrorPage("502", req.Host)))
+					}
+					
 					proxy.ServeHTTP(w, r)
 					return
 				}
@@ -288,7 +305,9 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	http.Error(w, "Godelion Proxy: No matching gateway rule or container port mapping found for this port/host", http.StatusNotFound)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusNotFound)
+	w.Write([]byte(getNiceErrorPage("404", r.Host)))
 }
 
 // EnsureListenerRunning starts a shared HTTP multiplexer on the specified port if it doesn't exist

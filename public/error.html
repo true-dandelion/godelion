@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统提示 - Godelion</title>
+    <style>
+        :root {
+            --bg-color: #09090b;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --accent: #3b82f6;
+            --grid-color: rgba(255, 255, 255, 0.03);
+            --glow-color: rgba(59, 130, 246, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 极简网格背景 */
+        .background-grid {
+            position: absolute;
+            inset: 0;
+            background-size: 50px 50px;
+            background-image: 
+                linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+                linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+            mask-image: radial-gradient(circle at center, black 30%, transparent 80%);
+            -webkit-mask-image: radial-gradient(circle at center, black 30%, transparent 80%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* 动态光晕 */
+        .glow {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--glow-color) 0%, transparent 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+            pointer-events: none;
+            animation: pulse 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.5; }
+            100% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+        }
+
+        .container {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+            max-width: 600px;
+            width: 100%;
+            animation: float-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes float-up {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .status-code {
+            font-size: clamp(6rem, 15vw, 12rem);
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: -0.05em;
+            background: linear-gradient(180deg, #ffffff 0%, rgba(255, 255, 255, 0.2) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+            position: relative;
+            user-select: none;
+        }
+
+        /* 故障抖动特效层 */
+        .status-code::before,
+        .status-code::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-color);
+            -webkit-text-fill-color: transparent;
+            opacity: 0.8;
+            z-index: -1;
+        }
+
+        .status-code::before {
+            left: 2px;
+            text-shadow: -2px 0 #ff00c1;
+            animation: glitch-anim-1 2.5s infinite linear alternate-reverse;
+        }
+
+        .status-code::after {
+            left: -2px;
+            text-shadow: -2px 0 #00fff9;
+            animation: glitch-anim-2 3s infinite linear alternate-reverse;
+        }
+
+        @keyframes glitch-anim-1 {
+            0% { clip-path: inset(20% 0 80% 0); transform: translate(0); }
+            20% { clip-path: inset(60% 0 10% 0); transform: translate(-2px, 2px); }
+            40% { clip-path: inset(40% 0 50% 0); transform: translate(2px, -2px); }
+            60% { clip-path: inset(80% 0 5% 0); transform: translate(-2px, 2px); }
+            80% { clip-path: inset(10% 0 70% 0); transform: translate(2px, -2px); }
+            100% { clip-path: inset(30% 0 50% 0); transform: translate(0); }
+        }
+
+        @keyframes glitch-anim-2 {
+            0% { clip-path: inset(10% 0 60% 0); transform: translate(0); }
+            20% { clip-path: inset(30% 0 20% 0); transform: translate(2px, -2px); }
+            40% { clip-path: inset(70% 0 10% 0); transform: translate(-2px, 2px); }
+            60% { clip-path: inset(20% 0 50% 0); transform: translate(2px, -2px); }
+            80% { clip-path: inset(50% 0 30% 0); transform: translate(-2px, 2px); }
+            100% { clip-path: inset(5% 0 80% 0); transform: translate(0); }
+        }
+
+        .title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.02em;
+        }
+
+        .description {
+            font-size: 1rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin-bottom: 2.5rem;
+            max-width: 80%;
+        }
+
+        .divider {
+            width: 40px;
+            height: 2px;
+            background: var(--text-muted);
+            opacity: 0.3;
+            margin: 0 auto 2rem auto;
+            border-radius: 2px;
+        }
+
+        .details-box {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 1.25rem;
+            width: 100%;
+            text-align: left;
+            backdrop-filter: blur(10px);
+            margin-bottom: 2rem;
+            display: none; /* 默认隐藏，有额外信息时显示 */
+        }
+
+        .details-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .details-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .details-label {
+            color: var(--text-muted);
+            font-family: monospace;
+        }
+
+        .details-value {
+            color: var(--text-main);
+            font-family: monospace;
+        }
+
+        .action-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.875rem 2rem;
+            background: var(--text-main);
+            color: var(--bg-color);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            border-radius: 99px;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .action-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 255, 255, 0.1);
+            background: transparent;
+            color: var(--text-main);
+            border-color: var(--text-main);
+        }
+
+        .watermark {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.2);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            font-family: monospace;
+            pointer-events: none;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 640px) {
+            .container { padding: 1.5rem; }
+            .description { max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="background-grid"></div>
+    <div class="glow" id="statusGlow"></div>
+    
+    <div class="watermark">Godelion Proxy Engine</div>
+
+    <div class="container">
+        <!-- 错误代码将通过 JS 动态注入 -->
+        <div class="status-code" id="statusCode" data-text="502">502</div>
+        
+        <h1 class="title" id="statusTitle">Bad Gateway</h1>
+        <div class="divider"></div>
+        <p class="description" id="statusDesc">网关错误。代理服务器在尝试执行请求时，从上游服务器接收到了无效的响应。</p>
+
+        <div class="details-box" id="detailsBox">
+            <div class="details-row">
+                <span class="details-label">Host</span>
+                <span class="details-value" id="detailHost">-</span>
+            </div>
+            <div class="details-row">
+                <span class="details-label">Request ID</span>
+                <span class="details-value" id="detailReqId">-</span>
+            </div>
+            <div class="details-row">
+                <span class="details-label">Timestamp</span>
+                <span class="details-value" id="detailTime">-</span>
+            </div>
+        </div>
+
+        <a href="javascript:history.back()" class="action-button" id="actionBtn">返回上一页</a>
+    </div>
+
+    <script>
+        // 错误状态码字典
+        const errorMap = {
+            '400': {
+                title: 'Bad Request',
+                desc: '请求参数错误。服务器无法理解该请求，可能是由于语法格式错误或参数缺失。',
+                color: 'rgba(234, 179, 8, 0.15)' // 黄色
+            },
+            '401': {
+                title: 'Unauthorized',
+                desc: '未授权或未登录。访问此资源需要有效的身份身份验证凭证。',
+                color: 'rgba(249, 115, 22, 0.15)' // 橙色
+            },
+            '403': {
+                title: 'Forbidden',
+                desc: '禁止访问。您的客户端已被识别，但您没有执行此操作或访问此资源的权限。',
+                color: 'rgba(239, 68, 68, 0.15)' // 红色
+            },
+            '404': {
+                title: 'Not Found',
+                desc: '页面不存在。您正在寻找的路由或资源在服务器上找不到。',
+                color: 'rgba(168, 85, 247, 0.15)' // 紫色
+            },
+            '500': {
+                title: 'Internal Server Error',
+                desc: '服务器内部错误。服务器遇到意外情况，导致其无法完成请求。',
+                color: 'rgba(239, 68, 68, 0.15)' // 红色
+            },
+            '502': {
+                title: 'Bad Gateway',
+                desc: '网关错误。代理服务器在尝试转发请求时，从上游目标容器或服务器接收到了无效响应（服务可能未启动或已崩溃）。',
+                color: 'rgba(59, 130, 246, 0.15)' // 蓝色
+            },
+            '503': {
+                title: 'Service Unavailable',
+                desc: '服务不可用。服务器目前无法处理请求，可能正在维护或过载。',
+                color: 'rgba(245, 158, 11, 0.15)' // 黄色
+            },
+            '504': {
+                title: 'Gateway Timeout',
+                desc: '网关超时。代理服务器未能及时从上游目标服务器获得响应。',
+                color: 'rgba(249, 115, 22, 0.15)' // 橙色
+            }
+        };
+
+        // 从 URL 获取参数 (或者由后端直接注入的全局变量)
+        function getQueryParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                code: window.SERVER_ERROR_CODE || params.get('code') || '502',
+                host: window.SERVER_ERROR_HOST || params.get('host') || window.location.hostname,
+                reqId: params.get('req_id') || Math.random().toString(36).substring(2, 10).toUpperCase()
+            };
+        }
+
+        // 初始化页面内容
+        function initPage() {
+            const params = getQueryParams();
+            const errorInfo = errorMap[params.code] || {
+                title: 'Unknown Error',
+                desc: '发生了未知的网络错误。',
+                color: 'rgba(255, 255, 255, 0.1)'
+            };
+
+            // 设置文案
+            const codeEl = document.getElementById('statusCode');
+            codeEl.textContent = params.code;
+            codeEl.setAttribute('data-text', params.code);
+            
+            document.getElementById('statusTitle').textContent = errorInfo.title;
+            document.getElementById('statusDesc').textContent = errorInfo.desc;
+            
+            // 设置主题光晕颜色
+            document.documentElement.style.setProperty('--glow-color', errorInfo.color);
+
+            // 填充详细信息
+            document.getElementById('detailsBox').style.display = 'block';
+            document.getElementById('detailHost').textContent = params.host;
+            document.getElementById('detailReqId').textContent = params.reqId;
+            
+            const now = new Date();
+            document.getElementById('detailTime').textContent = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+
+            // 动态按钮逻辑
+            const actionBtn = document.getElementById('actionBtn');
+            if (params.code === '401' || params.code === '403') {
+                actionBtn.textContent = '返回首页重新验证';
+                actionBtn.href = '/';
+            } else if (params.code === '404') {
+                actionBtn.textContent = '返回首页';
+                actionBtn.href = '/';
+            }
+        }
+
+        // 页面加载完成后执行
+        window.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>
