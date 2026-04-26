@@ -190,7 +190,18 @@ func GetTLSConfig() *tls.Config {
 			if err := db.DB.Where("domain = ? AND tls_enabled = ?", hello.ServerName, true).First(&rule).Error; err != nil {
 				return nil, fmt.Errorf("no certificate found for %s", hello.ServerName)
 			}
-			cert, err := tls.LoadX509KeyPair(rule.CertPath, rule.KeyPath)
+			
+			var sslCert models.SSLCertificate
+			if err := db.DB.Where("domain = ?", hello.ServerName).First(&sslCert).Error; err != nil {
+				// Fallback to old path based cert if SSLCertificate not found
+				cert, err := tls.LoadX509KeyPair(rule.CertPath, rule.KeyPath)
+				if err != nil {
+					return nil, err
+				}
+				return &cert, nil
+			}
+			
+			cert, err := tls.X509KeyPair([]byte(sslCert.CertContent), []byte(sslCert.KeyContent))
 			if err != nil {
 				return nil, err
 			}

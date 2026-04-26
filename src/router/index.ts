@@ -40,6 +40,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '文件隔离' }
       },
       {
+        path: 'ssl',
+        name: 'SSL',
+        component: () => import('../views/SSL.vue'),
+        meta: { title: 'SSL证书' }
+      },
+      {
         path: 'docker/status',
         name: 'DockerStatus',
         component: () => import('../views/docker/Status.vue'),

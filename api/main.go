@@ -53,7 +53,13 @@ func main() {
         workloads.Delete("/:id", controllers.DeleteWorkload)
         workloads.Put("/:id", controllers.UpdateWorkload)
 
-	// Gateways
+	// SSL Certificates
+        ssl := protected.Group("/ssl")
+        ssl.Get("/", controllers.ListSSLCerts)
+        ssl.Post("/", controllers.CreateSSLCert)
+        ssl.Delete("/:id", controllers.DeleteSSLCert)
+
+        // Gateways
 	gateways := protected.Group("/gateways")
 	gateways.Post("/", controllers.CreateGatewayRule)
 	gateways.Get("/", controllers.ListGatewayRules)

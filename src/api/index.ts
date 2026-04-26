@@ -22,6 +22,10 @@ export const createGateway = (data: any) => request.post<any, ApiResponse>('/gat
 export const updateGateway = (id: string, data: any) => request.put<any, ApiResponse>(`/gateways/${id}`, data)
 export const deleteGateway = (id: string) => request.delete<any, ApiResponse>(`/gateways/${id}`)
 
+export const getSSLCerts = () => request.get<any, ApiResponse>('/ssl')
+export const createSSLCert = (data: any) => request.post<any, ApiResponse>('/ssl', data)
+export const deleteSSLCert = (id: string) => request.delete<any, ApiResponse>(`/ssl/${id}`)
+
 // Storage
 export const getFiles = (path: string = '/') => request.get<any, ApiResponse>(`/storage/list?path=${encodeURIComponent(path)}`)
 export const uploadFile = (path: string, file: File) => {

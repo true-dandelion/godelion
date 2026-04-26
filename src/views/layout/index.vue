@@ -38,6 +38,11 @@
           <template #title>文件隔离</template>
         </el-menu-item>
 
+        <el-menu-item index="/ssl">
+          <el-icon><Lock /></el-icon>
+          <template #title>SSL证书</template>
+        </el-menu-item>
+
         <el-sub-menu index="/docker">
           <template #title>
             <el-icon><Monitor /></el-icon>
@@ -114,6 +119,7 @@ import {
   Box,
   Connection,
   Folder,
+  Lock,
   Expand,
   Fold,
   Bell,

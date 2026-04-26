@@ -50,6 +50,16 @@ type GatewayRule struct {
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
+type SSLCertificate struct {
+        ID          string         `gorm:"primaryKey" json:"id"`
+        Domain      string         `gorm:"not null" json:"domain"`
+        CertContent string         `gorm:"type:text" json:"cert_content"`
+        KeyContent  string         `gorm:"type:text" json:"key_content"`
+        CreatedAt   time.Time      `json:"created_at"`
+        UpdatedAt   time.Time      `json:"updated_at"`
+        DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
 type AuditLog struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	UserID    string    `json:"user_id"`
