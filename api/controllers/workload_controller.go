@@ -221,10 +221,10 @@ func StartWorkload(c *fiber.Ctx) error {
                 return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
         }
 
-        // Add a start log entry
+        // Add a start log entry to action logs
         logLine := "=== 服务启动 ===\n"
         db.DB.Model(&models.Container{}).Where("id = ?", w.ID).
-                Update("deployment_logs", gorm.Expr("IFNULL(deployment_logs, '') || ?", logLine))
+                Update("action_logs", gorm.Expr("IFNULL(action_logs, '') || ?", logLine))
 
         // Start proxy
         services.StartProxiesForContainer(w)
@@ -246,10 +246,10 @@ func StopWorkload(c *fiber.Ctx) error {
                 return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
         }
 
-        // Add a stop log entry
-        logLine := "=== 服务停止 ===\n"
+        // Add a stop log entry to action logs
+        logLine := "\n=== 服务停止 ===\n"
         db.DB.Model(&models.Container{}).Where("id = ?", w.ID).
-                Update("deployment_logs", gorm.Expr("IFNULL(deployment_logs, '') || ?", logLine))
+                Update("action_logs", gorm.Expr("IFNULL(action_logs, '') || ?", logLine))
 
         // Stop proxy
         services.StopProxiesForContainer(w)
@@ -287,9 +287,15 @@ func GetWorkloadLogs(c *fiber.Ctx) error {
 	// so the user sees the full history.
 	fullLogs := ""
 	if w.DeploymentLogs != "" {
-		fullLogs += "=== 部署阶段日志 ===\n" + w.DeploymentLogs + "\n=== 运行阶段日志 ===\n"
+		fullLogs += "=== 部署阶段日志 ===\n" + w.DeploymentLogs + "\n"
 	}
+	
+	fullLogs += "=== 运行阶段日志 ===\n"
 	fullLogs += logs
+
+	if w.ActionLogs != "" {
+		fullLogs += w.ActionLogs
+	}
 
 	return c.JSON(fiber.Map{
 		"code":    200,

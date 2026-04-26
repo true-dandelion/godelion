@@ -26,8 +26,9 @@ type Container struct {
 	UserID         string         `json:"user_id"`
 	Ports          string         `gorm:"type:text" json:"ports"` // JSON serialized port mappings
 	ResourceLimits string         `json:"resource_limits"`
-	DeploymentLogs string         `gorm:"type:text" json:"deployment_logs"` // Stores logs during the async creation phase
-	Status         string         `gorm:"-" json:"status"` // Transient, fetched from Docker
+        DeploymentLogs string         `gorm:"type:text" json:"deployment_logs"` // Stores logs during the async creation phase
+        ActionLogs     string         `gorm:"type:text" json:"action_logs"`     // Stores manual start/stop action history
+        Status         string         `gorm:"-" json:"status"` // Transient, fetched from Docker
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
