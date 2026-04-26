@@ -287,3 +287,61 @@ func GetWorkloadLogs(c *fiber.Ctx) error {
 		"data":    fullLogs,
 	})
 }
+
+func DeleteWorkload(c *fiber.Ctx) error {
+	id := c.Params("id")
+	var w models.Container
+	if err := db.DB.First(&w, "id = ?", id).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Container not found"})
+	}
+
+	if w.DockerID != "" {
+		services.StopContainer(context.Background(), w.DockerID)
+		services.RemoveContainer(context.Background(), w.DockerID)
+	}
+
+	if err := db.DB.Delete(&w).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete db record"})
+	}
+
+	return c.JSON(fiber.Map{"code": 200, "message": "Successfully deleted"})
+}
+
+func UpdateWorkload(c *fiber.Ctx) error {
+	id := c.Params("id")
+	var req struct {
+		Name  string `json:"name"`
+		Ports []struct {
+			Host      string `json:"host"`
+			Container string `json:"container"`
+		} `json:"ports"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
+	}
+
+	var w models.Container
+	if err := db.DB.First(&w, "id = ?", id).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Container not found"})
+	}
+
+	if req.Name != "" {
+		w.Name = req.Name
+	}
+	if req.Ports != nil {
+		portsJSON, _ := json.Marshal(req.Ports)
+		w.Ports = string(portsJSON)
+	}
+
+	if err := db.DB.Save(&w).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update db record"})
+	}
+
+	services.StartProxiesForContainer(w)
+
+	return c.JSON(fiber.Map{
+		"code":    200,
+		"message": "Successfully updated",
+		"data":    w,
+	})
+}

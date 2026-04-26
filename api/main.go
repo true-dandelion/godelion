@@ -44,12 +44,14 @@ func main() {
 	protected := api.Use(middleware.AuthRequired())
 
 	// Workloads
-	workloads := protected.Group("/workloads")
-	workloads.Get("/", controllers.ListWorkloads)
-	workloads.Post("/", controllers.CreateWorkload)
-	workloads.Post("/:id/start", controllers.StartWorkload)
-	workloads.Post("/:id/stop", controllers.StopWorkload)
-	workloads.Get("/:id/logs", controllers.GetWorkloadLogs)
+        workloads := protected.Group("/workloads")
+        workloads.Get("/", controllers.ListWorkloads)
+        workloads.Post("/", controllers.CreateWorkload)
+        workloads.Post("/:id/start", controllers.StartWorkload)
+        workloads.Post("/:id/stop", controllers.StopWorkload)
+        workloads.Get("/:id/logs", controllers.GetWorkloadLogs)
+        workloads.Delete("/:id", controllers.DeleteWorkload)
+        workloads.Put("/:id", controllers.UpdateWorkload)
 
 	// Gateways
 	gateways := protected.Group("/gateways")

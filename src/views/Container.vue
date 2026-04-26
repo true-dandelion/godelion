@@ -121,6 +121,15 @@
 
               <el-button 
                 link 
+                type="primary" 
+                class="!p-0 hover:opacity-80"
+                @click="handleEdit(row)"
+              >
+                <el-icon :size="18"><Edit /></el-icon>
+              </el-button>
+
+              <el-button 
+                link 
                 type="danger" 
                 class="!p-0 hover:opacity-80"
                 @click="handleDelete(row)"
@@ -255,13 +264,49 @@
         </span>
       </template>
     </el-dialog>
+    <!-- 编辑容器对话框 -->
+    <el-dialog
+      v-model="editDialogVisible"
+      title="编辑容器信息"
+      width="500px"
+      custom-class="dark-dialog"
+      :destroy-on-close="true"
+    >
+      <el-form :model="editForm" label-width="100px" class="mt-4 pr-8">
+        <el-form-item label="名称" required>
+          <el-input v-model="editForm.name" placeholder="请输入名称" />
+        </el-form-item>
+
+        <el-form-item label="端口映射">
+          <div v-for="(port, index) in editForm.ports" :key="index" class="flex gap-2 mb-2">
+            <el-input v-model="port.host" placeholder="主机端口" class="flex-1" />
+            <span class="text-zinc-500 pt-1">:</span>
+            <el-input v-model="port.container" placeholder="容器端口" class="flex-1" />
+            <el-button type="danger" link @click="removeEditPort(index)">
+              <el-icon><Remove /></el-icon>
+            </el-button>
+          </div>
+          <el-button type="primary" link @click="addEditPort" class="!text-zinc-400 hover:!text-white mt-1">
+            <el-icon class="mr-1"><Plus /></el-icon> 添加端口映射
+          </el-button>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="editDialogVisible = false" class="!bg-transparent !text-white !border-zinc-700">取消</el-button>
+          <el-button type="primary" @click="submitEdit" class="!bg-white !text-black !border-none hover:!bg-zinc-200">
+            保存修改
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getWorkloads, createWorkload, startWorkload, stopWorkload, getFiles, readFile, getWorkloadLogs } from '../api'
+import { getWorkloads, createWorkload, startWorkload, stopWorkload, deleteWorkload, updateWorkload, getFiles, readFile, getWorkloadLogs } from '../api'
 import {
   Search,
   Plus,
@@ -271,6 +316,7 @@ import {
   RefreshRight,
   Delete,
   Document,
+  Edit,
   Remove
 } from '@element-plus/icons-vue'
 
@@ -477,9 +523,84 @@ const handleDelete = (row: any) => {
     cancelButtonText: '取消',
     type: 'error',
     customClass: 'dark-message-box'
-  }).then(() => {
-    ElMessage.warning('后端暂未实现物理删除接口')
+  }).then(async () => {
+    loading.value = true
+    try {
+      const res = await deleteWorkload(row.id)
+      if (res.code === 200) {
+        ElMessage.success('容器已删除')
+        fetchContainers()
+      } else {
+        ElMessage.error(res.message || '删除失败')
+      }
+    } catch (error) {
+      ElMessage.error('删除请求异常')
+    } finally {
+      loading.value = false
+    }
   }).catch(() => {})
+}
+
+const editDialogVisible = ref(false)
+const editForm = reactive({
+  id: '',
+  name: '',
+  ports: [{ host: '', container: '' }]
+})
+
+const handleEdit = (row: any) => {
+  editForm.id = row.id
+  editForm.name = row.name
+  
+  let parsedPorts = []
+  try {
+    parsedPorts = typeof row.ports === 'string' && row.ports ? JSON.parse(row.ports) : []
+  } catch (e) {
+    parsedPorts = []
+  }
+  
+  if (Array.isArray(parsedPorts) && parsedPorts.length > 0) {
+    editForm.ports = parsedPorts.map(p => ({ host: p.host || p.HostPort, container: p.container || p.ContainerPort }))
+  } else {
+    editForm.ports = [{ host: '', container: '' }]
+  }
+  
+  editDialogVisible.value = true
+}
+
+const addEditPort = () => {
+  editForm.ports.push({ host: '', container: '' })
+}
+
+const removeEditPort = (index: number) => {
+  editForm.ports.splice(index, 1)
+}
+
+const submitEdit = async () => {
+  if (!editForm.name) {
+    ElMessage.warning('名称不能为空')
+    return
+  }
+  loading.value = true
+  try {
+    const validPorts = editForm.ports.filter(p => p.host && p.container)
+    const payload = {
+      name: editForm.name,
+      ports: validPorts
+    }
+    const res = await updateWorkload(editForm.id, payload)
+    if (res.code === 200) {
+      ElMessage.success('更新成功')
+      editDialogVisible.value = false
+      fetchContainers()
+    } else {
+      ElMessage.error(res.message || '更新失败')
+    }
+  } catch (error) {
+    ElMessage.error('请求异常')
+  } finally {
+    loading.value = false
+  }
 }
 
 const handleDeploy = async () => {

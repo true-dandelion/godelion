@@ -13,6 +13,7 @@ export const createWorkload = (data: any) => request.post<any, ApiResponse>('/wo
 export const startWorkload = (id: string) => request.post<any, ApiResponse>(`/workloads/${id}/start`)
 export const stopWorkload = (id: string) => request.post<any, ApiResponse>(`/workloads/${id}/stop`)
 export const deleteWorkload = (id: string) => request.delete<any, ApiResponse>(`/workloads/${id}`)
+export const updateWorkload = (id: string, data: any) => request.put<any, ApiResponse>(`/workloads/${id}`, data)
 export const getWorkloadLogs = (id: string) => request.get<any, ApiResponse>(`/workloads/${id}/logs`)
 
 // Gateway & Network
