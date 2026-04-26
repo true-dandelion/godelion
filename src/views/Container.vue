@@ -69,7 +69,9 @@
           <template #default="{ row }">
             <div v-if="row.parsedPorts && row.parsedPorts.length > 0" class="flex flex-wrap gap-1">
               <el-tag v-for="(port, idx) in row.parsedPorts" :key="idx" size="small" type="info" class="!bg-zinc-800 !border-zinc-700 !text-zinc-300 font-mono">
-                {{ port.host }}:{{ port.container }}
+                <template v-if="port.host && port.container">{{ port.host }}:{{ port.container }}</template>
+                <template v-else-if="port.host">{{ port.host }}</template>
+                <template v-else>{{ port.container }}</template>
               </el-tag>
             </div>
             <span v-else class="text-zinc-600 text-sm">-</span>
@@ -583,7 +585,8 @@ const submitEdit = async () => {
   }
   loading.value = true
   try {
-    const validPorts = editForm.ports.filter(p => p.host && p.container)
+    // 只要主机端口或容器端口任意一个存在，就保留
+    const validPorts = editForm.ports.filter(p => p.host || p.container)
     const payload = {
       name: editForm.name,
       ports: validPorts
@@ -611,7 +614,8 @@ const handleDeploy = async () => {
   loading.value = true
   
   try {
-    const validPorts = deployForm.ports.filter(p => p.host && p.container)
+    // 只要主机端口或容器端口任意一个存在，就保留
+    const validPorts = deployForm.ports.filter(p => p.host || p.container)
     
     // Resolve project directory path
     const projectDirPath = '/' + deployForm.projectDir.join('/')
