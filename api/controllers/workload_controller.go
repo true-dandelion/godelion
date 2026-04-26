@@ -208,43 +208,53 @@ func ListWorkloads(c *fiber.Ctx) error {
 }
 
 func StartWorkload(c *fiber.Ctx) error {
-	id := c.Params("id")
-	var w models.Container
-	if err := db.DB.First(&w, "id = ?", id).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Container not found"})
-	}
-	if w.DockerID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Container is still creating"})
-	}
+        id := c.Params("id")
+        var w models.Container
+        if err := db.DB.First(&w, "id = ?", id).Error; err != nil {
+                return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Container not found"})
+        }
+        if w.DockerID == "" {
+                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Container is still creating"})
+        }
 
-	if err := services.StartContainer(c.Context(), w.DockerID); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-	}
-	
-	// Start proxy
-	services.StartProxiesForContainer(w)
-	
-	return c.JSON(fiber.Map{"code": 200, "message": "Started"})
+        if err := services.StartContainer(c.Context(), w.DockerID); err != nil {
+                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+        }
+
+        // Add a start log entry
+        logLine := "=== 服务启动 ===\n"
+        db.DB.Model(&models.Container{}).Where("id = ?", w.ID).
+                Update("deployment_logs", gorm.Expr("IFNULL(deployment_logs, '') || ?", logLine))
+
+        // Start proxy
+        services.StartProxiesForContainer(w)
+
+        return c.JSON(fiber.Map{"code": 200, "message": "Started"})
 }
 
 func StopWorkload(c *fiber.Ctx) error {
-	id := c.Params("id")
-	var w models.Container
-	if err := db.DB.First(&w, "id = ?", id).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Container not found"})
-	}
-	if w.DockerID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Container is still creating"})
-	}
+        id := c.Params("id")
+        var w models.Container
+        if err := db.DB.First(&w, "id = ?", id).Error; err != nil {
+                return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Container not found"})
+        }
+        if w.DockerID == "" {
+                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Container is still creating"})
+        }
 
-	if err := services.StopContainer(c.Context(), w.DockerID); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-	}
-	
-	// Stop proxy
-	services.StopProxiesForContainer(w)
-	
-	return c.JSON(fiber.Map{"code": 200, "message": "Stopped"})
+        if err := services.StopContainer(c.Context(), w.DockerID); err != nil {
+                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+        }
+
+        // Add a stop log entry
+        logLine := "=== 服务停止 ===\n"
+        db.DB.Model(&models.Container{}).Where("id = ?", w.ID).
+                Update("deployment_logs", gorm.Expr("IFNULL(deployment_logs, '') || ?", logLine))
+
+        // Stop proxy
+        services.StopProxiesForContainer(w)
+
+        return c.JSON(fiber.Map{"code": 200, "message": "Stopped"})
 }
 
 func GetWorkloadLogs(c *fiber.Ctx) error {
