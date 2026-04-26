@@ -25,6 +25,7 @@ func main() {
 
 	app := fiber.New(fiber.Config{
 		DisableStartupMessage: true,
+		BodyLimit:             100 * 1024 * 1024, // 100MB limit for file uploads
 	})
 
 	app.Use(cors.New())

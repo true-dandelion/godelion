@@ -173,21 +173,21 @@ func ProxyHandler(c *fiber.Ctx) error {
         proxyMutex.RUnlock()
         
         if !exists {
-                // To protect the system, we only allow access to the Godelion UI via specific conditions,
-                // otherwise we return a 404 proxy error page.
-                // For safety and to prevent exposing the UI on wildcard domains, if a user accesses via a domain
-                // that has no gateway rule, we block it.
-                // We allow access if the host is an IP address or localhost.
+                // If the user visits the system port using an IP address (or localhost),
+                // we want them to access the Godelion UI or API.
                 isIP := false
                 if net.ParseIP(host) != nil || host == "localhost" {
                         isIP = true
                 }
                 
-                if !isIP {
-                        return c.Status(404).Type("html").SendString(getNiceErrorPage("404", host))
+                // If it's an IP, let it fall through to Fiber to serve the UI
+                if isIP {
+                        return c.Next()
                 }
-                
-                return c.Next()
+
+                // Otherwise, this is a domain name that isn't mapped in our gateway rules!
+                // We must return the beautiful 404 proxy error page.
+                return c.Status(404).Type("html").SendString(getNiceErrorPage("404", host))
         }
 
 	targetStr := pool.Next()
