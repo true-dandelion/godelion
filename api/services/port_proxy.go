@@ -64,9 +64,66 @@ func StartProxiesForContainer(c models.Container) {
 	}
 }
 
-// StopProxiesForContainer - we no longer actively stop listeners since they are multiplexed and shared
+// CheckAndStopUnusedListener checks if a port is no longer used by any container or gateway rule, and stops it
+func CheckAndStopUnusedListener(port string) {
+        if port == "8080" {
+                return // Never stop the main UI port
+        }
+
+        // Check if any gateway rule is still using this port
+        inUse := false
+        var rules []models.GatewayRule
+        db.DB.Find(&rules)
+        for _, r := range rules {
+                for _, p := range strings.Split(r.ListenPorts, ",") {
+                        if strings.TrimSpace(p) == port {
+                                inUse = true
+                                break
+                        }
+                }
+        }
+
+        // Check if any container is still using this port
+        if !inUse {
+                var containers []models.Container
+                db.DB.Find(&containers)
+                for _, c := range containers {
+                        if c.Ports == "" || c.Ports == "[]" {
+                                continue
+                        }
+                        var ports []WorkloadPort
+                        json.Unmarshal([]byte(c.Ports), &ports)
+                        for _, p := range ports {
+                                if p.Host == port {
+                                        inUse = true
+                                        break
+                                }
+                        }
+                        if inUse {
+                                break
+                        }
+                }
+        }
+
+        if !inUse {
+                StopSingleProxy(port)
+        }
+}
+
+// StopProxiesForContainer triggers a check to stop listeners that are no longer needed
 func StopProxiesForContainer(c models.Container) {
-	// Optional: Could implement reference counting to stop listeners when 0 users, but not strictly necessary
+        if c.Ports == "" || c.Ports == "[]" {
+                return
+        }
+
+        var ports []WorkloadPort
+        if err := json.Unmarshal([]byte(c.Ports), &ports); err == nil {
+                for _, p := range ports {
+                        if p.Host != "" {
+                                go CheckAndStopUnusedListener(p.Host)
+                        }
+                }
+        }
 }
 
 func getContainerIP(dockerID string) string {
@@ -189,21 +246,24 @@ func EnsureListenerRunning(port string) {
 
 		if err != nil && err != http.ErrServerClosed {
 			log.Printf("[Dynamic Listener Error] Port %s failed: %v", port, err)
-			workloadProxyMutex.Lock()
-			delete(proxyServers, port)
-			workloadProxyMutex.Unlock()
 		}
+		
+		// Once it exits (due to error or Close), remove from map
+		workloadProxyMutex.Lock()
+		delete(proxyServers, port)
+		workloadProxyMutex.Unlock()
 	}()
 }
 
 // Keeping this for backward compatibility if ever needed
 func StopSingleProxy(hostPort string) {
 	workloadProxyMutex.Lock()
-	defer workloadProxyMutex.Unlock()
+	server, exists := proxyServers[hostPort]
+	workloadProxyMutex.Unlock()
 
-	if server, exists := proxyServers[hostPort]; exists {
+	if exists {
 		log.Printf("[Dynamic Listener] Stopping listener on port %s", hostPort)
 		server.Close()
-		delete(proxyServers, hostPort)
+		// Map deletion is handled in the listener's goroutine when Close() returns
 	}
 }

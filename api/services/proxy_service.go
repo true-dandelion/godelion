@@ -99,10 +99,12 @@ func RemoveProxyRule(rule models.GatewayRule) {
 			portStr = strings.TrimSpace(portStr)
 			if portStr != "" {
 				delete(proxyTargetPools, rule.Domain+":"+portStr)
+				go CheckAndStopUnusedListener(portStr)
 			}
 		}
 	} else {
 		delete(proxyTargetPools, rule.Domain+":80")
+		go CheckAndStopUnusedListener("80")
 	}
 }
 
