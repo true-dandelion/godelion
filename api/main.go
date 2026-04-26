@@ -92,8 +92,8 @@ func main() {
 		log.Printf("Could not start HTTPS listener: %v\n", err)
 	}
 
-	log.Println("Starting HTTP server on :8080")
-	if err := app.Listen(":8080"); err != nil {
+	log.Printf("Starting HTTP server on :%s\n", services.SystemPort)
+	if err := app.Listen(":" + services.SystemPort); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

@@ -16,9 +16,12 @@ import (
 )
 
 var (
-	// Map of hostPort -> *http.Server
-	proxyServers = make(map[string]*http.Server)
-	workloadProxyMutex   sync.Mutex
+        // Map of hostPort -> *http.Server
+        proxyServers = make(map[string]*http.Server)
+        workloadProxyMutex   sync.Mutex
+        
+        // SystemPort tracks the main port used by the Godelion API to prevent it from being stopped
+        SystemPort = "8080"
 )
 
 // A generic structure to hold parsed ports
@@ -66,7 +69,7 @@ func StartProxiesForContainer(c models.Container) {
 
 // CheckAndStopUnusedListener checks if a port is no longer used by any container or gateway rule, and stops it
 func CheckAndStopUnusedListener(port string) {
-        if port == "8080" {
+        if port == SystemPort {
                 return // Never stop the main UI port
         }
 

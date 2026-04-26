@@ -77,7 +77,7 @@ func UpdateProxyRule(rule models.GatewayRule) {
 					Current: 0,
 				}
 				// We only ensure dynamic listener if it's not the main web UI port
-				if portStr != "8080" {
+				if portStr != SystemPort {
 					EnsureListenerRunning(portStr)
 				}
 			}
@@ -112,8 +112,8 @@ func ProxyHandler(c *fiber.Ctx) error {
         host := c.Hostname()
         
         // Hostname in fiber might not include the port if standard 80/443
-        // We need the port to route correctly. Assuming fiber is on 8080 or TLS 443
-        port := "8080"
+        // We need the port to route correctly. Assuming fiber is on SystemPort or TLS 443
+        port := SystemPort
         if c.Protocol() == "https" {
                 port = "443"
         }
