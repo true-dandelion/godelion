@@ -212,8 +212,33 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
         proxyMutex.RUnlock()
 
 	if exists {
+		// 2. Select target
 		targetStr := pool.Next()
 		if targetStr != "" {
+			// Handle dynamic container resolution
+			if strings.HasPrefix(targetStr, "@container:") {
+				parts := strings.SplitN(targetStr, ":", 3) // @container:uuid:port
+				if len(parts) == 3 {
+					containerID := parts[1]
+					containerPort := parts[2]
+					
+					// Find the Docker container ID from the DB UUID
+					var container models.Container
+					if err := db.DB.First(&container, "id = ?", containerID).Error; err == nil && container.DockerID != "" {
+						ip := getContainerIP(container.DockerID)
+						if ip != "" {
+							targetStr = fmt.Sprintf("http://%s:%s", ip, containerPort)
+						} else {
+							http.Error(w, "Bad Gateway: Container IP not found", http.StatusBadGateway)
+							return
+						}
+					} else {
+						http.Error(w, "Bad Gateway: Container not running or not found", http.StatusBadGateway)
+						return
+					}
+				}
+			}
+
 			if !strings.HasPrefix(targetStr, "http://") && !strings.HasPrefix(targetStr, "https://") {
 				targetStr = "http://" + targetStr
 			}
