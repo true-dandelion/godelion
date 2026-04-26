@@ -197,8 +197,10 @@ func UpdateGatewayRule(c *fiber.Ctx) error {
                 return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update rule"})
         }
 
-        // Apply new proxy rule
+        // Apply proxy rule
         services.UpdateProxyRule(rule)
+
+        LogAction(c, "Update", "Gateway", "Updated gateway rule for: "+rule.Domain)
 
         return c.JSON(fiber.Map{
                 "code":    200,
@@ -219,6 +221,8 @@ func DeleteGatewayRule(c *fiber.Ctx) error {
         }
 
         services.RemoveProxyRule(rule)
+
+        LogAction(c, "Delete", "Gateway", "Deleted gateway rule for: "+rule.Domain)
 
         return c.JSON(fiber.Map{
 		"code":    200,

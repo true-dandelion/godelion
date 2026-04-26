@@ -40,10 +40,12 @@ func Login(c *fiber.Ctx) error {
 
 	tokenString, err := token.SignedString(middleware.JwtSecret)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not login"})
-	}
+                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not login"})
+        }
 
-	return c.JSON(fiber.Map{
+        LogAction(c, "Login", "Auth", "User logged in: "+user.Username)
+
+        return c.JSON(fiber.Map{
 		"code":    200,
 		"message": "Login successful",
 		"data": fiber.Map{

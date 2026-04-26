@@ -53,6 +53,8 @@ func UploadFile(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save file"})
 	}
 
+	LogAction(c, "Upload", "File", "Uploaded file: "+file.Filename+" to "+path)
+
 	return c.JSON(fiber.Map{"code": 200, "message": "File uploaded successfully"})
 }
 
@@ -113,6 +115,8 @@ func DeleteFile(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete"})
 	}
 
+	LogAction(c, "Delete", "File", "Deleted file or folder: "+path)
+
 	return c.JSON(fiber.Map{"code": 200, "message": "Deleted successfully"})
 }
 
@@ -172,6 +176,8 @@ func CreateFolder(c *fiber.Ctx) error {
 	if err := os.MkdirAll(destPath, 0755); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create folder"})
 	}
+
+	LogAction(c, "Create", "Folder", "Created folder: "+destPath)
 
 	return c.JSON(fiber.Map{"code": 200, "message": "Folder created successfully"})
 }

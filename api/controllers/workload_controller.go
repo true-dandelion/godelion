@@ -86,6 +86,8 @@ func CreateWorkload(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save to db"})
 	}
 
+	LogAction(c, "Deploy", "Container", "Deployed container: "+req.Name)
+
 	// Run actual container pulling and creation asynchronously in a goroutine
 	go func() {
 		// Helper to append logs to DB
@@ -237,6 +239,8 @@ func StartWorkload(c *fiber.Ctx) error {
         // Start proxy
         services.StartProxiesForContainer(w)
 
+        LogAction(c, "Start", "Container", "Started container: "+w.Name)
+
         return c.JSON(fiber.Map{"code": 200, "message": "Started"})
 }
 
@@ -261,6 +265,8 @@ func StopWorkload(c *fiber.Ctx) error {
 
         // Stop proxy
         services.StopProxiesForContainer(w)
+
+        LogAction(c, "Stop", "Container", "Stopped container: "+w.Name)
 
         return c.JSON(fiber.Map{"code": 200, "message": "Stopped"})
 }
@@ -328,6 +334,11 @@ func DeleteWorkload(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete db record"})
 	}
 
+	// Stop proxy before deleting
+	services.StopProxiesForContainer(w)
+
+	LogAction(c, "Delete", "Container", "Deleted container: "+w.Name)
+
 	return c.JSON(fiber.Map{"code": 200, "message": "Successfully deleted"})
 }
 
@@ -370,6 +381,8 @@ func UpdateWorkload(c *fiber.Ctx) error {
 	}
 
 	services.StartProxiesForContainer(w)
+
+	LogAction(c, "Update", "Container", "Updated container config: "+w.Name)
 
 	return c.JSON(fiber.Map{
 		"code":    200,

@@ -65,11 +65,15 @@ func main() {
         ssl.Delete("/:id", controllers.DeleteSSLCert)
 
         // Gateways
-	gateways := protected.Group("/gateways")
-	gateways.Post("/", controllers.CreateGatewayRule)
-	gateways.Get("/", controllers.ListGatewayRules)
-	gateways.Put("/:id", controllers.UpdateGatewayRule)
-	gateways.Delete("/:id", controllers.DeleteGatewayRule)
+        gateways := protected.Group("/gateways")
+        gateways.Post("/", controllers.CreateGatewayRule)
+        gateways.Get("/", controllers.ListGatewayRules)
+        gateways.Put("/:id", controllers.UpdateGatewayRule)
+        gateways.Delete("/:id", controllers.DeleteGatewayRule)
+
+        // Audit Logs
+        audit := protected.Group("/audit")
+        audit.Get("/", controllers.ListAuditLogs)
 
 	// Storage
 	storage := protected.Group("/storage")

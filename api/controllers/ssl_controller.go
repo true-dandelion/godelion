@@ -82,6 +82,9 @@ func CreateSSLCert(c *fiber.Ctx) error {
                 existing.ExpiresAt = expiresAt
                 existing.UpdatedAt = time.Now()
                 db.DB.Save(&existing)
+                
+                LogAction(c, "Update", "SSL", "Updated SSL cert for: "+existing.Domain)
+
                 return c.JSON(fiber.Map{"code": 200, "message": "Certificate updated successfully", "data": existing})
         }
 
@@ -97,6 +100,8 @@ func CreateSSLCert(c *fiber.Ctx) error {
         if err := db.DB.Create(&cert).Error; err != nil {
                 return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save certificate"})
         }
+
+        LogAction(c, "Create", "SSL", "Uploaded SSL cert for: "+cert.Domain)
 
         return c.JSON(fiber.Map{
                 "code":    200,
@@ -116,6 +121,8 @@ func DeleteSSLCert(c *fiber.Ctx) error {
         if err := db.DB.Delete(&cert).Error; err != nil {
                 return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete certificate"})
         }
+
+        LogAction(c, "Delete", "SSL", "Deleted SSL cert for: "+cert.Domain)
 
         return c.JSON(fiber.Map{
                 "code":    200,
