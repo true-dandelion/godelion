@@ -19,6 +19,7 @@ func CreateGatewayRule(c *fiber.Ctx) error {
                 ListenPorts string `json:"listen_ports"`
                 TargetURLs  string `json:"target_urls"`
                 TLSEnabled  bool   `json:"tls_enabled"`
+                SSLCertID   string `json:"ssl_cert_id"`
                 ContainerID string `json:"container_id"`
                 TargetPort  int    `json:"target_port"`
         }
@@ -47,6 +48,7 @@ func CreateGatewayRule(c *fiber.Ctx) error {
 		ListenPorts: payload.ListenPorts,
 		TargetURLs:  payload.TargetURLs,
 		TLSEnabled:  payload.TLSEnabled,
+		SSLCertID:   payload.SSLCertID,
 		ContainerID: payload.ContainerID,
 		TargetPort:  payload.TargetPort,
 	}
@@ -77,7 +79,9 @@ func ListGatewayRules(c *fiber.Ctx) error {
 		ListenPorts   string `json:"listen_ports"`
 		TargetURLs    string `json:"target_urls"`
 		TLSEnabled    bool   `json:"tls_enabled"`
+		SSLCertID     string `json:"ssl_cert_id"`
 		IsPortMapping bool   `json:"is_port_mapping"`
+		ContainerID   string `json:"container_id,omitempty"`
 	}
 
 	var unifiedRules []UnifiedRule
@@ -102,7 +106,9 @@ func ListGatewayRules(c *fiber.Ctx) error {
 			ListenPorts:   r.ListenPorts,
 			TargetURLs:    targetDisplay,
 			TLSEnabled:    r.TLSEnabled,
+			SSLCertID:     r.SSLCertID,
 			IsPortMapping: false,
+			ContainerID:   r.ContainerID,
 		})
 	}
 
@@ -148,6 +154,7 @@ func UpdateGatewayRule(c *fiber.Ctx) error {
                 ListenPorts string `json:"listen_ports"`
                 TargetURLs  string `json:"target_urls"`
                 TLSEnabled  bool   `json:"tls_enabled"`
+                SSLCertID   string `json:"ssl_cert_id"`
                 ContainerID string `json:"container_id"`
                 TargetPort  int    `json:"target_port"`
         }
@@ -182,6 +189,7 @@ func UpdateGatewayRule(c *fiber.Ctx) error {
         rule.ListenPorts = payload.ListenPorts
         rule.TargetURLs = payload.TargetURLs
         rule.TLSEnabled = payload.TLSEnabled
+        rule.SSLCertID = payload.SSLCertID
         rule.ContainerID = payload.ContainerID
         rule.TargetPort = payload.TargetPort
 

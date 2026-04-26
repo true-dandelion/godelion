@@ -73,8 +73,14 @@
           <template #default="{ row }">
             <span v-if="!row.tls_enabled" class="text-zinc-500 text-sm">-</span>
             <div v-else class="flex items-center gap-2">
-              <div class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
-              <span class="text-sm text-green-500">正常 (28天后过期)</span>
+              <template v-if="row.ssl_cert_id">
+                <div class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
+                <span class="text-sm text-green-500">已绑定</span>
+              </template>
+              <template v-else>
+                <div class="w-2 h-2 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.5)]"></div>
+                <span class="text-sm text-yellow-500">自动匹配中</span>
+              </template>
             </div>
           </template>
         </el-table-column>
@@ -167,6 +173,22 @@
             <el-switch v-model="ruleForm.tls_enabled" />
           </div>
         </el-form-item>
+
+        <el-form-item label="SSL 证书" required v-if="ruleForm.tls_enabled">
+          <el-select v-model="ruleForm.ssl_cert_id" placeholder="请选择绑定的 SSL 证书" class="w-full">
+            <el-option
+              v-for="cert in sslCerts"
+              :key="cert.id"
+              :label="cert.domain"
+              :value="cert.id"
+            >
+              <div class="flex justify-between items-center">
+                <span>{{ cert.domain }}</span>
+                <span class="text-zinc-500 text-xs ml-2">{{ new Date(cert.expires_at).toLocaleDateString() }} 到期</span>
+              </div>
+            </el-option>
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
@@ -183,7 +205,7 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getGateways, createGateway, deleteGateway, getWorkloads, updateGateway } from '../api'
+import { getGateways, createGateway, deleteGateway, getWorkloads, updateGateway, getSSLCerts } from '../api'
 import {
   Search,
   Plus,
@@ -210,10 +232,12 @@ const ruleForm = reactive({
   domain: '',
   listen_ports: '80, 443',
   target_urls: '',
-  tls_enabled: false
+  tls_enabled: false,
+  ssl_cert_id: ''
 })
 
 const rules = ref<any[]>([])
+const sslCerts = ref<any[]>([])
 
 const fetchRules = async () => {
   loading.value = true
@@ -250,6 +274,17 @@ const fetchContainers = async () => {
   }
 }
 
+const fetchSSLCerts = async () => {
+  try {
+    const res = await getSSLCerts()
+    if (res.code === 200) {
+      sslCerts.value = res.data || []
+    }
+  } catch (error) {
+    console.error('获取证书列表异常', error)
+  }
+}
+
 const handleContainerSelect = (val: string) => {
   const container = containersList.value.find(c => c.id === val)
   if (container) {
@@ -265,6 +300,7 @@ const handleContainerSelect = (val: string) => {
 onMounted(() => {
   fetchRules()
   fetchContainers()
+  fetchSSLCerts()
 })
 
 const filteredRules = computed(() => {
@@ -283,6 +319,7 @@ const handleEdit = (row: any) => {
   ruleForm.domain = row.domain
   ruleForm.listen_ports = row.listen_ports
   ruleForm.tls_enabled = row.tls_enabled
+  ruleForm.ssl_cert_id = row.ssl_cert_id || ''
 
   if (row.target_urls.startsWith('Container: ')) {
     targetType.value = 'container'
@@ -331,6 +368,7 @@ const handleAddRule = async () => {
       listen_ports: ruleForm.listen_ports,
       target_urls: targetType.value === 'custom' ? ruleForm.target_urls : '',
       tls_enabled: ruleForm.tls_enabled,
+      ssl_cert_id: ruleForm.tls_enabled ? ruleForm.ssl_cert_id : '',
       container_id: targetType.value === 'container' ? selectedContainer.value : '',
       target_port: targetType.value === 'container' ? parseInt(selectedContainerPort.value) : 0
     }
@@ -350,6 +388,7 @@ const handleAddRule = async () => {
       ruleForm.listen_ports = '80, 443'
       ruleForm.target_urls = ''
       ruleForm.tls_enabled = false
+      ruleForm.ssl_cert_id = ''
       targetType.value = 'custom'
       selectedContainer.value = ''
       selectedContainerPort.value = ''
@@ -373,6 +412,7 @@ const openAddDialog = () => {
   ruleForm.listen_ports = '80, 443'
   ruleForm.target_urls = ''
   ruleForm.tls_enabled = false
+  ruleForm.ssl_cert_id = ''
   targetType.value = 'custom'
   selectedContainer.value = ''
   selectedContainerPort.value = ''

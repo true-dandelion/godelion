@@ -41,9 +41,10 @@ type GatewayRule struct {
         ListenPorts string         `json:"listen_ports"` // e.g. "80, 443"
         TargetURLs  string         `json:"target_urls"`  // e.g. "127.0.0.1:3000, demo:3000"
 	TargetPort  int            `json:"target_port"`  // Legacy
-	ContainerID string         `json:"container_id"` // Legacy
-	TLSEnabled  bool           `json:"tls_enabled"`
-	CertPath    string         `json:"cert_path"`
+        ContainerID string         `json:"container_id"` // Legacy
+        TLSEnabled  bool           `json:"tls_enabled"`
+        SSLCertID   string         `json:"ssl_cert_id"`  // Explicitly selected SSL Certificate ID
+        CertPath    string         `json:"cert_path"`
 	KeyPath     string         `json:"key_path"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`

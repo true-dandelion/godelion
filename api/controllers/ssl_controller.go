@@ -73,7 +73,8 @@ func CreateSSLCert(c *fiber.Ctx) error {
 
         // Check if domain already has a cert
         var existing models.SSLCertificate
-        if err := db.DB.Where("domain = ?", payload.Domain).First(&existing).Error; err == nil {
+        result := db.DB.Where("domain = ?", payload.Domain).Find(&existing)
+        if result.RowsAffected > 0 {
                 // Update existing
                 existing.CertContent = payload.CertContent
                 existing.KeyContent = payload.KeyContent
