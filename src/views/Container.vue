@@ -499,23 +499,33 @@ const removePort = (index: number) => {
 }
 
 const handleAction = async (row: any, action: string) => {
-  ElMessage.info(`正在${action === 'start' ? '启动' : '停止'}容器 ${row.name}...`)
+  ElMessage.info(`正在${action === 'start' ? '启动' : action === 'restart' ? '重启' : '停止'}容器 ${row.name}...`)
   try {
     let res: any
     if (action === 'start') {
       res = await startWorkload(row.id)
     } else if (action === 'stop') {
       res = await stopWorkload(row.id)
+    } else if (action === 'restart') {
+      res = await stopWorkload(row.id)
+      if (res && res.code === 200) {
+        res = await startWorkload(row.id)
+      }
     }
     
     if (res && res.code === 200) {
-      ElMessage.success(`${action === 'start' ? '启动' : '停止'}成功`)
+      ElMessage.success(`${action === 'start' ? '启动' : action === 'restart' ? '重启' : '停止'}成功`)
       fetchContainers()
     } else {
       ElMessage.error(res?.message || '操作失败')
     }
-  } catch (error) {
-    ElMessage.error('操作异常')
+  } catch (error: any) {
+    if (error.message && error.message.includes('timeout')) {
+      ElMessage.warning('请求超时，但后端可能仍在处理，请稍后刷新页面查看状态')
+      setTimeout(() => fetchContainers(), 3000)
+    } else {
+      ElMessage.error('操作异常')
+    }
   }
 }
 
