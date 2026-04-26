@@ -25,11 +25,16 @@ func InitDB() {
 
 	var err error
 	DB, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
-	}
+        if err != nil {
+                log.Fatalf("Failed to connect to database: %v", err)
+        }
 
-	err = DB.AutoMigrate(&models.User{}, &models.Container{}, &models.GatewayRule{}, &models.AuditLog{})
+        // Manually drop the unique index on domain if it exists to allow same domain on multiple ports
+        if DB.Migrator().HasIndex(&models.GatewayRule{}, "idx_gateway_rules_domain") {
+                DB.Migrator().DropIndex(&models.GatewayRule{}, "idx_gateway_rules_domain")
+        }
+
+        err = DB.AutoMigrate(&models.User{}, &models.Container{}, &models.GatewayRule{}, &models.AuditLog{})
 	if err != nil {
 		log.Fatalf("Failed to auto migrate database: %v", err)
 	}

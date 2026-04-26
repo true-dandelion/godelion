@@ -89,15 +89,19 @@ type dynamicProxyHandler struct {
 }
 
 func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	host := r.Host
-	if strings.Contains(host, ":") {
-		host, _, _ = strings.Cut(host, ":")
-	}
+        host := r.Host
+        domain := host
+        if strings.Contains(host, ":") {
+                domain, _, _ = strings.Cut(host, ":")
+        }
 
-	// 1. Check Gateway Rules (Domain matching)
-	proxyMutex.RLock()
-	pool, exists := proxyTargetPools[host]
-	proxyMutex.RUnlock()
+        // The key is domain:port
+        key := domain + ":" + h.Port
+
+        // 1. Check Gateway Rules (Domain matching)
+        proxyMutex.RLock()
+        pool, exists := proxyTargetPools[key]
+        proxyMutex.RUnlock()
 
 	if exists {
 		targetStr := pool.Next()

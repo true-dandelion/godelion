@@ -117,12 +117,12 @@ func DeleteGatewayRule(c *fiber.Ctx) error {
 	}
 
 	if err := db.DB.Delete(&rule).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete rule"})
-	}
+                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete rule"})
+        }
 
-	services.RemoveProxyRule(rule.Domain)
+        services.RemoveProxyRule(rule)
 
-	return c.JSON(fiber.Map{
+        return c.JSON(fiber.Map{
 		"code":    200,
 		"message": "Rule deleted",
 	})

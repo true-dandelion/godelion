@@ -36,10 +36,10 @@ type Container struct {
 }
 
 type GatewayRule struct {
-	ID          string         `gorm:"primaryKey" json:"id"`
-	Domain      string         `gorm:"uniqueIndex;not null" json:"domain"`
-	ListenPorts string         `json:"listen_ports"` // e.g. "80, 443"
-	TargetURLs  string         `json:"target_urls"`  // e.g. "127.0.0.1:3000, demo:3000"
+        ID          string         `gorm:"primaryKey" json:"id"`
+        Domain      string         `gorm:"not null" json:"domain"` // Removed uniqueIndex to allow multiple ports for the same domain
+        ListenPorts string         `json:"listen_ports"` // e.g. "80, 443"
+        TargetURLs  string         `json:"target_urls"`  // e.g. "127.0.0.1:3000, demo:3000"
 	TargetPort  int            `json:"target_port"`  // Legacy
 	ContainerID string         `json:"container_id"` // Legacy
 	TLSEnabled  bool           `json:"tls_enabled"`

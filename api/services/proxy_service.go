@@ -65,37 +65,69 @@ func UpdateProxyRule(rule models.GatewayRule) {
 		targets = append(targets, fmt.Sprintf("127.0.0.1:%d", rule.TargetPort))
 	}
 
-	proxyTargetPools[rule.Domain] = &TargetPool{
-		Targets: targets,
-		Current: 0,
-	}
-
 	// Ensure dynamic listeners are started for the new ListenPorts field
 	if rule.ListenPorts != "" {
 		for _, portStr := range strings.Split(rule.ListenPorts, ",") {
 			portStr = strings.TrimSpace(portStr)
-			// Fiber app itself usually binds 8080 and 443 in main.go, so we might not want to bind them dynamically here
-			// However, to be robust, EnsureListenerRunning can handle existing ports. 
-			// We only ensure dynamic listener if it's not the main web UI port
-			if portStr != "" && portStr != "8080" {
-				EnsureListenerRunning(portStr)
+			if portStr != "" {
+				// Key by domain:port to allow same domain on different ports
+				key := rule.Domain + ":" + portStr
+				proxyTargetPools[key] = &TargetPool{
+					Targets: targets,
+					Current: 0,
+				}
+				// We only ensure dynamic listener if it's not the main web UI port
+				if portStr != "8080" {
+					EnsureListenerRunning(portStr)
+				}
 			}
+		}
+	} else {
+		// Fallback for rules without ListenPorts
+		proxyTargetPools[rule.Domain+":80"] = &TargetPool{
+			Targets: targets,
+			Current: 0,
 		}
 	}
 }
 
-func RemoveProxyRule(domain string) {
+func RemoveProxyRule(rule models.GatewayRule) {
 	proxyMutex.Lock()
 	defer proxyMutex.Unlock()
-	delete(proxyTargetPools, domain)
+	if rule.ListenPorts != "" {
+		for _, portStr := range strings.Split(rule.ListenPorts, ",") {
+			portStr = strings.TrimSpace(portStr)
+			if portStr != "" {
+				delete(proxyTargetPools, rule.Domain+":"+portStr)
+			}
+		}
+	} else {
+		delete(proxyTargetPools, rule.Domain+":80")
+	}
 }
 
 func ProxyHandler(c *fiber.Ctx) error {
-	host := c.Hostname()
+        host := c.Hostname()
+        
+        // Hostname in fiber might not include the port if standard 80/443
+        // We need the port to route correctly. Assuming fiber is on 8080 or TLS 443
+        port := "8080"
+        if c.Protocol() == "https" {
+                port = "443"
+        }
+        
+        // If Host header explicitly has a port, extract it
+        hostHeader := c.Get("Host")
+        if strings.Contains(hostHeader, ":") {
+                _, portPart, _ := strings.Cut(hostHeader, ":")
+                port = portPart
+        }
 
-	proxyMutex.RLock()
-	pool, exists := proxyTargetPools[host]
-	proxyMutex.RUnlock()
+        key := host + ":" + port
+
+        proxyMutex.RLock()
+        pool, exists := proxyTargetPools[key]
+        proxyMutex.RUnlock()
 
 	if !exists {
 		// Not found, continue to next handler (e.g., Godelion UI)
