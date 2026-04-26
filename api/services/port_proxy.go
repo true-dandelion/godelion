@@ -212,6 +212,13 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
         proxyMutex.RUnlock()
 
 	if exists {
+		if pool == nil || len(pool.Targets) == 0 {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusBadGateway)
+			w.Write([]byte(getNiceErrorPage("502", r.Host)))
+			return
+		}
+
 		// 2. Select target
 		targetStr := pool.Next()
 		if targetStr != "" {
@@ -246,17 +253,10 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			if !strings.HasPrefix(targetStr, "http://") && !strings.HasPrefix(targetStr, "https://") {
 				targetStr = "http://" + targetStr
 			}
+			
 			targetURL, _ := url.Parse(targetStr)
 			proxy := httputil.NewSingleHostReverseProxy(targetURL)
 			
-			// Let the container know the original host
-			proxy.Director = func(req *http.Request) {
-				req.URL.Scheme = targetURL.Scheme
-				req.URL.Host = targetURL.Host
-				req.Header.Set("X-Forwarded-Host", req.Host)
-			}
-			
-			// Customize error handler to show nice pages instead of blank responses when target is down
 			proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {
 				rw.Header().Set("Content-Type", "text/html; charset=utf-8")
 				rw.WriteHeader(http.StatusBadGateway)
@@ -264,6 +264,11 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			}
 			
 			proxy.ServeHTTP(w, r)
+			return
+		} else {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusBadGateway)
+			w.Write([]byte(getNiceErrorPage("502", r.Host)))
 			return
 		}
 	}
@@ -306,8 +311,8 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusNotFound)
-	w.Write([]byte(getNiceErrorPage("404", r.Host)))
+        w.WriteHeader(http.StatusNotFound)
+        w.Write([]byte(getNiceErrorPage("404", r.Host)))
 }
 
 // EnsureListenerRunning starts a shared HTTP multiplexer on the specified port if it doesn't exist
