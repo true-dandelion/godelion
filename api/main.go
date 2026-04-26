@@ -57,6 +57,7 @@ func main() {
 	gateways := protected.Group("/gateways")
 	gateways.Post("/", controllers.CreateGatewayRule)
 	gateways.Get("/", controllers.ListGatewayRules)
+	gateways.Put("/:id", controllers.UpdateGatewayRule)
 	gateways.Delete("/:id", controllers.DeleteGatewayRule)
 
 	// Storage

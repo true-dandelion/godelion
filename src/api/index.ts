@@ -19,6 +19,7 @@ export const getWorkloadLogs = (id: string) => request.get<any, ApiResponse>(`/w
 // Gateway & Network
 export const getGateways = () => request.get<any, ApiResponse>('/gateways')
 export const createGateway = (data: any) => request.post<any, ApiResponse>('/gateways', data)
+export const updateGateway = (id: string, data: any) => request.put<any, ApiResponse>(`/gateways/${id}`, data)
 export const deleteGateway = (id: string) => request.delete<any, ApiResponse>(`/gateways/${id}`)
 
 // Storage

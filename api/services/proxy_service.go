@@ -173,13 +173,13 @@ func ProxyHandler(c *fiber.Ctx) error {
                 targetStr = "http://" + targetStr
         }
 
-	targetURL, _ := url.Parse(targetStr)
-	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+        targetURL, _ := url.Parse(targetStr)
+        proxy := httputil.NewSingleHostReverseProxy(targetURL)
 
-	// Use fasthttp adaptor to serve httputil.ReverseProxy
-	handler := fasthttpadaptor.NewFastHTTPHandler(proxy)
-	handler(c.Context())
-	return nil
+        // Use fasthttp adaptor to serve httputil.ReverseProxy
+        handler := fasthttpadaptor.NewFastHTTPHandler(proxy)
+        handler(c.Context())
+        return nil
 }
 
 // GetTLSConfig fetches TLS config for domains

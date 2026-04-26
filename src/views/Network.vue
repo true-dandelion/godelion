@@ -16,7 +16,7 @@
           <el-option label="TCP" value="tcp" />
         </el-select>
       </div>
-      <el-button type="primary" @click="ruleDialogVisible = true" class="!bg-white !text-black hover:!bg-zinc-200 !border-none">
+      <el-button type="primary" @click="openAddDialog" class="!bg-white !text-black hover:!bg-zinc-200 !border-none">
         <el-icon class="mr-2"><Plus /></el-icon> 添加路由规则
       </el-button>
     </div>
@@ -83,7 +83,7 @@
           <template #default="{ row }">
             <div class="flex items-center gap-3">
               <template v-if="!row.is_port_mapping">
-                <el-button link type="primary" class="!p-0 hover:opacity-80">
+                <el-button link type="primary" class="!p-0 hover:opacity-80" @click="handleEdit(row)">
                   编辑
                 </el-button>
                 <el-button link type="warning" class="!p-0 hover:opacity-80" v-if="row.tls_enabled">
@@ -104,10 +104,10 @@
       </el-table>
     </el-card>
 
-    <!-- 添加路由规则对话框 -->
+    <!-- 添加/编辑路由规则对话框 -->
     <el-dialog
       v-model="ruleDialogVisible"
-      title="配置中继规则"
+      :title="isEditing ? '编辑中继规则' : '配置中继规则'"
       width="500px"
       custom-class="dark-dialog"
       :destroy-on-close="true"
@@ -172,7 +172,7 @@
         <span class="dialog-footer">
           <el-button @click="ruleDialogVisible = false" class="!bg-transparent !text-white !border-zinc-700">取消</el-button>
           <el-button type="primary" @click="handleAddRule" class="!bg-white !text-black !border-none hover:!bg-zinc-200">
-            保存规则
+            {{ isEditing ? '保存修改' : '确认添加' }}
           </el-button>
         </span>
       </template>
@@ -183,13 +183,14 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getGateways, createGateway, deleteGateway, getWorkloads } from '../api'
+import { getGateways, createGateway, deleteGateway, getWorkloads, updateGateway } from '../api'
 import {
   Search,
   Plus,
   Lock,
   Unlock,
-  Right
+  Right,
+  Edit
 } from '@element-plus/icons-vue'
 
 const loading = ref(false)
@@ -202,6 +203,8 @@ const containersList = ref<any[]>([])
 const selectedContainer = ref('')
 const selectedContainerPort = ref('')
 const availableContainerPorts = ref<string[]>([])
+const isEditing = ref(false)
+const currentEditId = ref('')
 
 const ruleForm = reactive({
   domain: '',
@@ -274,6 +277,36 @@ const filteredRules = computed(() => {
   })
 })
 
+const handleEdit = (row: any) => {
+  isEditing.value = true
+  currentEditId.value = row.id
+  ruleForm.domain = row.domain
+  ruleForm.listen_ports = row.listen_ports
+  ruleForm.tls_enabled = row.tls_enabled
+
+  if (row.target_urls.startsWith('Container: ')) {
+    targetType.value = 'container'
+    // Target display is e.g. "Container: nginx-test (80)"
+    // Need to find container id from name
+    const match = row.target_urls.match(/Container: (.+) \((\d+)\)/)
+    if (match) {
+      const cName = match[1]
+      const cPort = match[2]
+      const container = containersList.value.find(c => c.name === cName)
+      if (container) {
+        selectedContainer.value = container.id
+        handleContainerSelect(container.id)
+        selectedContainerPort.value = cPort
+      }
+    }
+  } else {
+    targetType.value = 'custom'
+    ruleForm.target_urls = row.target_urls
+  }
+
+  ruleDialogVisible.value = true
+}
+
 const handleAddRule = async () => {
   if (targetType.value === 'container') {
     if (!selectedContainer.value) {
@@ -301,10 +334,18 @@ const handleAddRule = async () => {
       container_id: targetType.value === 'container' ? selectedContainer.value : '',
       target_port: targetType.value === 'container' ? parseInt(selectedContainerPort.value) : 0
     }
-    const res = await createGateway(payload)
+    
+    let res
+    if (isEditing.value) {
+      res = await updateGateway(currentEditId.value, payload)
+    } else {
+      res = await createGateway(payload)
+    }
+
     if (res.code === 200) {
-      ElMessage.success('规则添加成功')
+      ElMessage.success(isEditing.value ? '规则更新成功' : '规则添加成功')
       ruleDialogVisible.value = false
+      // reset
       ruleForm.domain = ''
       ruleForm.listen_ports = '80, 443'
       ruleForm.target_urls = ''
@@ -312,15 +353,30 @@ const handleAddRule = async () => {
       targetType.value = 'custom'
       selectedContainer.value = ''
       selectedContainerPort.value = ''
+      isEditing.value = false
+      currentEditId.value = ''
       fetchRules()
     } else {
-      ElMessage.error(res.message || '添加失败')
+      ElMessage.error(res.message || (isEditing.value ? '更新失败' : '添加失败'))
     }
   } catch (error: any) {
-    ElMessage.error(error.response?.data?.error || '添加异常')
+    ElMessage.error(error.response?.data?.error || (isEditing.value ? '更新异常' : '添加异常'))
   } finally {
     loading.value = false
   }
+}
+
+const openAddDialog = () => {
+  isEditing.value = false
+  currentEditId.value = ''
+  ruleForm.domain = ''
+  ruleForm.listen_ports = '80, 443'
+  ruleForm.target_urls = ''
+  ruleForm.tls_enabled = false
+  targetType.value = 'custom'
+  selectedContainer.value = ''
+  selectedContainerPort.value = ''
+  ruleDialogVisible.value = true
 }
 
 const handleDelete = (row: any) => {

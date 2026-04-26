@@ -141,6 +141,64 @@ func ListGatewayRules(c *fiber.Ctx) error {
 	})
 }
 
+func UpdateGatewayRule(c *fiber.Ctx) error {
+        id := c.Params("id")
+        var payload struct {
+                Domain      string `json:"domain"`
+                ListenPorts string `json:"listen_ports"`
+                TargetURLs  string `json:"target_urls"`
+                TLSEnabled  bool   `json:"tls_enabled"`
+                ContainerID string `json:"container_id"`
+                TargetPort  int    `json:"target_port"`
+        }
+
+        if err := c.BodyParser(&payload); err != nil {
+                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
+        }
+
+        var rule models.GatewayRule
+        if err := db.DB.First(&rule, "id = ?", id).Error; err != nil {
+                return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Rule not found"})
+        }
+
+        // Validate port conflicts
+        if payload.ListenPorts != "" {
+                for _, p := range strings.Split(payload.ListenPorts, ",") {
+                        port := strings.TrimSpace(p)
+                        if port == "" {
+                                continue
+                        }
+                        isConflict, reason := services.CheckPortConflict(port, payload.Domain, id, "")
+                        if isConflict {
+                                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "端口 " + port + " 已被 [" + reason + "] 占用"})
+                        }
+                }
+        }
+
+        // Remove old proxy rule from memory/listeners
+        services.RemoveProxyRule(rule)
+
+        rule.Domain = payload.Domain
+        rule.ListenPorts = payload.ListenPorts
+        rule.TargetURLs = payload.TargetURLs
+        rule.TLSEnabled = payload.TLSEnabled
+        rule.ContainerID = payload.ContainerID
+        rule.TargetPort = payload.TargetPort
+
+        if err := db.DB.Save(&rule).Error; err != nil {
+                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update rule"})
+        }
+
+        // Apply new proxy rule
+        services.UpdateProxyRule(rule)
+
+        return c.JSON(fiber.Map{
+                "code":    200,
+                "message": "Successfully updated",
+                "data":    rule,
+        })
+}
+
 func DeleteGatewayRule(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var rule models.GatewayRule
