@@ -286,4 +286,20 @@ const handleDelete = (row: any) => {
 :deep(.el-switch.is-checked .el-switch__action) {
   background-color: #fff;
 }
+
+/* Custom Scrollbar for textareas */
+:deep(.el-textarea__inner::-webkit-scrollbar) {
+  width: 6px;
+  height: 6px;
+}
+:deep(.el-textarea__inner::-webkit-scrollbar-thumb) {
+  background-color: #3f3f46;
+  border-radius: 4px;
+}
+:deep(.el-textarea__inner::-webkit-scrollbar-track) {
+  background-color: transparent;
+}
+:deep(.el-textarea__inner::-webkit-scrollbar-thumb:hover) {
+  background-color: #52525b;
+}
 </style>
