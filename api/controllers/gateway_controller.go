@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"strings"
 	
 	"godelion/db"
 	"godelion/models"
@@ -20,10 +21,24 @@ func CreateGatewayRule(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
-	}
+                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
+        }
 
-	rule := models.GatewayRule{
+        // Validate port conflicts
+        if payload.ListenPorts != "" {
+                for _, p := range strings.Split(payload.ListenPorts, ",") {
+                        port := strings.TrimSpace(p)
+                        if port == "" {
+                                continue
+                        }
+                        isConflict, reason := services.CheckPortConflict(port, payload.Domain, "", "")
+                        if isConflict {
+                                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "端口 " + port + " 已被 [" + reason + "] 占用"})
+                        }
+                }
+        }
+
+        rule := models.GatewayRule{
 		ID:          uuid.NewString(),
 		Domain:      payload.Domain,
 		ListenPorts: payload.ListenPorts,

@@ -129,6 +129,54 @@ func StopProxiesForContainer(c models.Container) {
         }
 }
 
+// CheckPortConflict checks if a given port (and optionally domain) is already in use.
+// Returns (isConflict bool, conflictReason string)
+func CheckPortConflict(port string, domain string, excludeRuleID string, excludeContainerID string) (bool, string) {
+        if port == SystemPort {
+                return true, "Godelion系统服务"
+        }
+
+        // Check containers
+        var containers []models.Container
+        db.DB.Find(&containers)
+        for _, c := range containers {
+                if c.ID == excludeContainerID {
+                        continue
+                }
+                if c.Ports != "" && c.Ports != "[]" {
+                        var ports []WorkloadPort
+                        json.Unmarshal([]byte(c.Ports), &ports)
+                        for _, p := range ports {
+                                if p.Host == port {
+                                        return true, "容器: " + c.Name
+                                }
+                        }
+                }
+        }
+
+        // Check gateway rules
+        var rules []models.GatewayRule
+        db.DB.Find(&rules)
+        for _, r := range rules {
+                if r.ID == excludeRuleID {
+                        continue
+                }
+                for _, rp := range strings.Split(r.ListenPorts, ",") {
+                        rp = strings.TrimSpace(rp)
+                        if rp == port {
+                                // If checking for a container (domain == ""), ANY gateway rule on this port is a conflict.
+                                // Because a container binds the port on all interfaces/domains.
+                                // If checking for a gateway rule (domain != ""), conflict only if the SAME domain uses it.
+                                if domain == "" || r.Domain == domain {
+                                        return true, "中继规则: " + r.Domain
+                                }
+                        }
+                }
+        }
+
+        return false, ""
+}
+
 func getContainerIP(dockerID string) string {
 	info, err := DockerClient.ContainerInspect(context.Background(), dockerID)
 	if err != nil {

@@ -61,7 +61,15 @@ func CreateWorkload(c *fiber.Ctx) error {
 	containerID := uuid.NewString()
 
 	// Convert ports to JSON string
-	portsJSON, _ := json.Marshal(req.Ports)
+        for _, p := range req.Ports {
+                if p.Host != "" {
+                        isConflict, reason := services.CheckPortConflict(p.Host, "", "", "")
+                        if isConflict {
+                                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "主机端口 " + p.Host + " 已被 [" + reason + "] 占用"})
+                        }
+                }
+        }
+        portsJSON, _ := json.Marshal(req.Ports)
 
 	// Save to DB immediately with status 'creating' (handled by the UI as error/stopped initially until Docker catches up)
 	dbContainer := models.Container{
@@ -345,6 +353,14 @@ func UpdateWorkload(c *fiber.Ctx) error {
 		w.Name = req.Name
 	}
 	if req.Ports != nil {
+		for _, p := range req.Ports {
+			if p.Host != "" {
+				isConflict, reason := services.CheckPortConflict(p.Host, "", "", id)
+				if isConflict {
+					return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "主机端口 " + p.Host + " 已被 [" + reason + "] 占用"})
+				}
+			}
+		}
 		portsJSON, _ := json.Marshal(req.Ports)
 		w.Ports = string(portsJSON)
 	}
