@@ -1,33 +1,32 @@
 <template>
-  <div class="p-6">
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-white">SSL 证书管理</h1>
-      <div class="flex gap-2">
-        <el-button type="primary" @click="openPasteDialog" class="!bg-blue-600 !border-none hover:!bg-blue-500">
-          <el-icon class="mr-1"><DocumentAdd /></el-icon>
-          粘贴证书
-        </el-button>
-        <el-button type="success" @click="openUploadDialog" class="!bg-emerald-600 !border-none hover:!bg-emerald-500">
-          <el-icon class="mr-1"><Upload /></el-icon>
-          上传证书
-        </el-button>
+  <div class="h-full flex flex-col space-y-4">
+    <!-- 顶栏控制区 -->
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <el-input
+          v-model="searchDomain"
+          placeholder="搜索域名..."
+          class="w-64"
+          :prefix-icon="Search"
+          clearable
+        />
       </div>
+      <el-button type="primary" @click="openAddDialog" class="!bg-white !text-black hover:!bg-zinc-200 !border-none">
+        <el-icon class="mr-2"><Plus /></el-icon> 添加证书
+      </el-button>
     </div>
 
-    <el-card class="!bg-zinc-900 !border-zinc-800 !text-zinc-300 shadow-xl rounded-xl">
+    <!-- 证书列表 -->
+    <el-card shadow="never" class="flex-1 !bg-zinc-900 !border-zinc-800 flex flex-col">
       <el-table
-        :data="certs"
-        style="width: 100%"
-        class="!bg-transparent custom-dark-table"
-        :header-cell-style="{ background: '#18181b', color: '#a1a1aa', borderBottom: '1px solid #27272a' }"
-        :row-style="{ background: 'transparent' }"
-        :cell-style="{ borderBottom: '1px solid #27272a' }"
+        :data="filteredCerts"
         v-loading="loading"
-        element-loading-background="rgba(24, 24, 27, 0.8)"
+        style="width: 100%"
+        class="custom-dark-table"
       >
         <el-table-column prop="domain" label="绑定域名" min-width="180">
           <template #default="{ row }">
-            <span class="text-white font-medium">{{ row.domain }}</span>
+            <span class="text-zinc-200 font-medium">{{ row.domain }}</span>
           </template>
         </el-table-column>
         
@@ -46,7 +45,7 @@
                 class="!p-0 hover:opacity-80"
                 @click="handleSettings(row)"
               >
-                <el-icon :size="18"><Setting /></el-icon>
+                编辑
               </el-button>
 
               <el-button 
@@ -55,7 +54,7 @@
                 class="!p-0 hover:opacity-80"
                 @click="handleDelete(row)"
               >
-                <el-icon :size="18"><Delete /></el-icon>
+                删除
               </el-button>
             </div>
           </template>
@@ -63,20 +62,27 @@
       </el-table>
     </el-card>
 
-    <!-- 粘贴/设置证书对话框 -->
+    <!-- 粘贴/上传/设置证书对话框 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="dialogMode === 'paste' ? '粘贴证书' : (dialogMode === 'upload' ? '上传证书' : '证书设置')"
+      :title="isEditing ? '证书设置' : '添加证书'"
       width="600px"
       custom-class="dark-dialog"
       :destroy-on-close="true"
     >
       <el-form :model="certForm" label-width="100px" class="mt-4 pr-8">
         <el-form-item label="绑定域名" required>
-          <el-input v-model="certForm.domain" placeholder="例如: api.godelion.com" :disabled="dialogMode === 'settings'" />
+          <el-input v-model="certForm.domain" placeholder="例如: api.godelion.com" :disabled="isEditing" />
         </el-form-item>
 
-        <template v-if="dialogMode === 'paste' || dialogMode === 'settings'">
+        <el-form-item label="输入方式" required>
+          <el-radio-group v-model="inputMethod" class="!w-full flex">
+            <el-radio label="paste">粘贴内容</el-radio>
+            <el-radio label="upload">上传文件</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <template v-if="inputMethod === 'paste'">
           <el-form-item label="证书 (CRT/PEM)" required>
             <el-input 
               v-model="certForm.cert_content" 
@@ -96,7 +102,7 @@
           </el-form-item>
         </template>
 
-        <template v-else-if="dialogMode === 'upload'">
+        <template v-else-if="inputMethod === 'upload'">
           <el-form-item label="证书文件" required>
             <input type="file" accept=".crt,.pem" @change="e => handleFileUpload(e, 'cert')" class="text-zinc-300 w-full" />
             <div class="text-xs text-zinc-500 mt-1" v-if="certForm.cert_content">已加载证书: {{ certForm.cert_content.length }} bytes</div>
@@ -111,7 +117,7 @@
         <span class="dialog-footer">
           <el-button @click="dialogVisible = false" class="!bg-transparent !text-white !border-zinc-700">取消</el-button>
           <el-button type="primary" @click="submitCert" class="!bg-white !text-black !border-none hover:!bg-zinc-200">
-            保存证书
+            {{ isEditing ? '保存修改' : '确认添加' }}
           </el-button>
         </span>
       </template>
@@ -120,21 +126,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getSSLCerts, createSSLCert, deleteSSLCert } from '../api'
 import {
-  Upload,
-  DocumentAdd,
-  Delete,
-  Setting
+  Plus,
+  Search
 } from '@element-plus/icons-vue'
 
 const loading = ref(false)
 const certs = ref<any[]>([])
+const searchDomain = ref('')
 
 const dialogVisible = ref(false)
-const dialogMode = ref<'paste' | 'upload' | 'settings'>('paste')
+const isEditing = ref(false)
+const inputMethod = ref<'paste' | 'upload'>('paste')
 
 const certForm = reactive({
   domain: '',
@@ -162,32 +168,28 @@ onMounted(() => {
   fetchCerts()
 })
 
+const filteredCerts = computed(() => {
+  return certs.value.filter(c => c.domain.includes(searchDomain.value))
+})
+
 const resetForm = () => {
   certForm.domain = ''
   certForm.cert_content = ''
   certForm.key_content = ''
 }
 
-const openPasteDialog = () => {
-  dialogMode.value = 'paste'
-  resetForm()
-  dialogVisible.value = true
-}
-
-const openUploadDialog = () => {
-  dialogMode.value = 'upload'
+const openAddDialog = () => {
+  isEditing.value = false
+  inputMethod.value = 'paste'
   resetForm()
   dialogVisible.value = true
 }
 
 const handleSettings = (row: any) => {
-  dialogMode.value = 'settings'
+  isEditing.value = true
+  inputMethod.value = 'paste'
   resetForm()
   certForm.domain = row.domain
-  // We don't fetch private keys securely in list API, so they are blank here unless we add a get endpoint
-  // But for now we just allow them to overwrite
-  certForm.cert_content = ''
-  certForm.key_content = ''
   dialogVisible.value = true
 }
 
@@ -230,7 +232,7 @@ const submitCert = async () => {
     const res = await createSSLCert(payload)
 
     if (res.code === 200) {
-      ElMessage.success('证书保存成功')
+      ElMessage.success(isEditing.value ? '证书更新成功' : '证书保存成功')
       dialogVisible.value = false
       fetchCerts()
     } else {
@@ -269,19 +271,11 @@ const handleDelete = (row: any) => {
 </script>
 
 <style scoped>
-.custom-dark-table {
-  --el-table-border-color: #27272a;
-  --el-table-header-bg-color: #18181b;
-  --el-table-bg-color: transparent;
-  --el-table-tr-bg-color: transparent;
-  --el-table-row-hover-bg-color: rgba(255, 255, 255, 0.03);
+:deep(.el-switch.is-checked .el-switch__core) {
+  background-color: #3f3f46;
+  border-color: #3f3f46;
 }
-
-:deep(.el-table tbody tr:hover > td) {
-  background-color: rgba(255, 255, 255, 0.03) !important;
-}
-
-:deep(.el-table::before) {
-  display: none;
+:deep(.el-switch.is-checked .el-switch__action) {
+  background-color: #fff;
 }
 </style>
