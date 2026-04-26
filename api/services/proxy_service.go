@@ -1,9 +1,10 @@
 package services
 
 import (
+	"bytes"
 	"crypto/tls"
 	"fmt"
-	"net"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -40,8 +41,36 @@ func getNiceErrorPage(code, host string) string {
 	return html
 }
 
+func applyNiceErrorPages(proxy *httputil.ReverseProxy) {
+        // Handle when proxy fails to connect to the target (e.g. target is down)
+        proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {
+                rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+                rw.WriteHeader(http.StatusBadGateway)
+                rw.Write([]byte(getNiceErrorPage("502", req.Host)))
+        }
+
+        // Intercept responses from the target to show our custom error pages for specific codes
+        proxy.ModifyResponse = func(resp *http.Response) error {
+                code := resp.StatusCode
+                switch code {
+                case 400, 401, 403, 404, 500, 502, 503, 504:
+                        // We only overwrite the response if the client accepts HTML.
+                        // If it's an API call (e.g. application/json), we should preserve the original response
+                        // so we don't break frontend applications running inside the container.
+                        accept := resp.Request.Header.Get("Accept")
+                        if strings.Contains(accept, "text/html") || accept == "*/*" || accept == "" {
+                                html := getNiceErrorPage(fmt.Sprintf("%d", code), resp.Request.Host)
+                                resp.Body = io.NopCloser(bytes.NewBufferString(html))
+                                resp.ContentLength = int64(len(html))
+                                resp.Header.Set("Content-Type", "text/html; charset=utf-8")
+                                resp.Header.Del("Content-Encoding")
+                        }
+                }
+                return nil}
+}
+
 type TargetPool struct {
-	Targets []string
+        Targets []string
 	Current int
 	Mutex   sync.Mutex
 }
@@ -173,24 +202,12 @@ func ProxyHandler(c *fiber.Ctx) error {
         proxyMutex.RUnlock()
         
         if !exists {
-                // If the user visits the system port using an IP address (or localhost),
-                // we want them to access the Godelion UI or API.
-                isIP := false
-                if net.ParseIP(host) != nil || host == "localhost" {
-                        isIP = true
-                }
-                
-                // If it's an IP, let it fall through to Fiber to serve the UI
-                if isIP {
-                        return c.Next()
-                }
-
-                // Otherwise, this is a domain name that isn't mapped in our gateway rules!
-                // We must return the beautiful 404 proxy error page.
-                return c.Status(404).Type("html").SendString(getNiceErrorPage("404", host))
+                // If there's no gateway rule for this domain, just let Fiber handle it.
+                // This allows the Godelion UI and API to be accessed via any domain or IP.
+                return c.Next()
         }
 
-	targetStr := pool.Next()
+        targetStr := pool.Next()
         if targetStr == "" {
                 return c.Status(502).Type("html").SendString(getNiceErrorPage("502", host))
         }
@@ -223,13 +240,7 @@ func ProxyHandler(c *fiber.Ctx) error {
 
         targetURL, _ := url.Parse(targetStr)
         proxy := httputil.NewSingleHostReverseProxy(targetURL)
-        
-        // Setup error handler for the proxy to show nice page when target is down
-        proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {
-                rw.Header().Set("Content-Type", "text/html; charset=utf-8")
-                rw.WriteHeader(http.StatusBadGateway)
-                rw.Write([]byte(getNiceErrorPage("502", req.Host)))
-        }
+        applyNiceErrorPages(proxy)
 
         // Use fasthttp adaptor to serve httputil.ReverseProxy
         handler := fasthttpadaptor.NewFastHTTPHandler(proxy)
