@@ -66,11 +66,11 @@
     <el-dialog
       v-model="dialogVisible"
       :title="isEditing ? '证书设置' : '添加证书'"
-      width="600px"
+      width="800px"
       custom-class="dark-dialog"
       :destroy-on-close="true"
     >
-      <el-form :model="certForm" label-width="100px" class="mt-4 pr-8">
+      <el-form :model="certForm" label-position="top" class="mt-4 px-4">
         <el-form-item label="绑定域名" required>
           <el-input v-model="certForm.domain" placeholder="例如: api.godelion.com" :disabled="isEditing" />
         </el-form-item>
@@ -83,34 +83,40 @@
         </el-form-item>
 
         <template v-if="inputMethod === 'paste'">
-          <el-form-item label="证书 (CRT/PEM)" required>
-            <el-input 
-              v-model="certForm.cert_content" 
-              type="textarea" 
-              :rows="6" 
-              placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----" 
-            />
-          </el-form-item>
+          <div class="flex gap-4 w-full">
+            <el-form-item label="证书 (CRT/PEM)" required class="flex-1" label-position="top">
+              <el-input 
+                v-model="certForm.cert_content" 
+                type="textarea" 
+                :rows="12" 
+                placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----" 
+                class="font-mono text-xs"
+              />
+            </el-form-item>
 
-          <el-form-item label="私钥 (KEY)" required>
-            <el-input 
-              v-model="certForm.key_content" 
-              type="textarea" 
-              :rows="6" 
-              placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----" 
-            />
-          </el-form-item>
+            <el-form-item label="私钥 (KEY)" required class="flex-1" label-position="top">
+              <el-input 
+                v-model="certForm.key_content" 
+                type="textarea" 
+                :rows="12" 
+                placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----" 
+                class="font-mono text-xs"
+              />
+            </el-form-item>
+          </div>
         </template>
 
         <template v-else-if="inputMethod === 'upload'">
-          <el-form-item label="证书文件" required>
-            <input type="file" accept=".crt,.pem" @change="e => handleFileUpload(e, 'cert')" class="text-zinc-300 w-full" />
-            <div class="text-xs text-zinc-500 mt-1" v-if="certForm.cert_content">已加载证书: {{ certForm.cert_content.length }} bytes</div>
-          </el-form-item>
-          <el-form-item label="私钥文件" required>
-            <input type="file" accept=".key,.pem" @change="e => handleFileUpload(e, 'key')" class="text-zinc-300 w-full" />
-            <div class="text-xs text-zinc-500 mt-1" v-if="certForm.key_content">已加载私钥: {{ certForm.key_content.length }} bytes</div>
-          </el-form-item>
+          <div class="flex gap-4 w-full">
+            <el-form-item label="证书文件" required class="flex-1" label-position="top">
+              <input type="file" accept=".crt,.pem" @change="e => handleFileUpload(e, 'cert')" class="text-zinc-300 w-full" />
+              <div class="text-xs text-zinc-500 mt-1" v-if="certForm.cert_content">已加载证书: {{ certForm.cert_content.length }} bytes</div>
+            </el-form-item>
+            <el-form-item label="私钥文件" required class="flex-1" label-position="top">
+              <input type="file" accept=".key,.pem" @change="e => handleFileUpload(e, 'key')" class="text-zinc-300 w-full" />
+              <div class="text-xs text-zinc-500 mt-1" v-if="certForm.key_content">已加载私钥: {{ certForm.key_content.length }} bytes</div>
+            </el-form-item>
+          </div>
         </template>
       </el-form>
       <template #footer>
