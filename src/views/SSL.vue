@@ -89,6 +89,7 @@
                 v-model="certForm.cert_content" 
                 type="textarea" 
                 :rows="12" 
+                :resize="'none'"
                 placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----" 
                 class="font-mono text-xs"
               />
@@ -99,6 +100,7 @@
                 v-model="certForm.key_content" 
                 type="textarea" 
                 :rows="12" 
+                :resize="'none'"
                 placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----" 
                 class="font-mono text-xs"
               />
