@@ -301,6 +301,12 @@
 
         <!-- PHP 特定字段 -->
         <template v-if="deployForm.runtimeType === 'php'">
+          <el-form-item label="入口文件">
+            <el-input
+              v-model="deployForm.phpIndexFile"
+              placeholder="默认: index.php（如项目根目录下没有此文件，请填写实际入口文件）"
+            />
+          </el-form-item>
           <el-form-item label="说明">
             <div class="text-zinc-400 text-sm">
               PHP + Apache 容器会自动启动，不需要启动命令。
@@ -492,6 +498,7 @@ const deployForm = reactive({
 	packageManager: 'npm',
 	dependencies: '', // for comma-separated deps (Node.js)
 	requirementsFile: '', // for Python
+	phpIndexFile: '', // for PHP
 	ports: [{ host: '', container: '' }],
 	cpu: 1,
 	memory: '512m'
@@ -841,8 +848,10 @@ const handleDeploy = async () => {
 			payload.build_command = deployForm.buildCommand
 		} else if (deployForm.runtimeType === 'binary') {
 			payload.start_command = deployForm.startCommand
+		} else if (deployForm.runtimeType === 'php') {
+			payload.php_index_file = deployForm.phpIndexFile
 		}
-		// php 和 static 不需要启动命令
+		// static 不需要启动命令
 		
 		const res = await createWorkload(payload)
 		if (res.code === 200) {
@@ -872,6 +881,7 @@ const resetDeployForm = () => {
 	deployForm.packageManager = 'npm'
 	deployForm.dependencies = ''
 	deployForm.requirementsFile = ''
+	deployForm.phpIndexFile = ''
 	deployForm.ports = [{ host: '', container: '' }]
 	deployForm.cpu = 1
 	deployForm.memory = '512m'

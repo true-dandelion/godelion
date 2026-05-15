@@ -38,6 +38,7 @@ func CreateWorkload(c *fiber.Ctx) error {
 		PackageManager string `json:"package_manager"`
 		Dependencies   string `json:"dependencies"`
 		RequirementsFile string `json:"requirements_file"` // for Python
+		PhpIndexFile   string `json:"php_index_file"` // for PHP
 		Ports          []struct {
 			Host      string `json:"host"`
 			Container string `json:"container"`
@@ -232,8 +233,14 @@ func CreateWorkload(c *fiber.Ctx) error {
 			containerCmd = []string{"sh", "-c", cmdStr}
 
 		case "php":
-			// PHP+Apache不需要额外启动命令，自动启动
-			containerCmd = []string{}
+			// PHP+Apache 使用默认命令启动，但如果指定了入口文件，需要修改 DirectoryIndex
+			if req.PhpIndexFile != "" {
+				// 修改 Apache 配置以使用指定的入口文件
+				cmdStr = fmt.Sprintf("sed -i 's/DirectoryIndex index.html/DirectoryIndex %s/' /etc/apache2/mods-enabled/dir.conf && sed -i 's/DirectoryIndex index.php/DirectoryIndex %s/' /etc/apache2/mods-enabled/dir.conf && apache2-foreground", req.PhpIndexFile, req.PhpIndexFile)
+				containerCmd = []string{"sh", "-c", cmdStr}
+			} else {
+				containerCmd = []string{} // 使用镜像默认命令
+			}
 
 		case "static":
 			// Nginx不需要额外启动命令
