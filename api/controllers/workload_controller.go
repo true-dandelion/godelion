@@ -124,7 +124,19 @@ func CreateWorkload(c *fiber.Ctx) error {
                         }
                 }
         }
-        portsJSON, _ := json.Marshal(req.Ports)
+        // PHP+Apache 和 Nginx 固定监听 80 端口，修正容器端口后再存入数据库
+        dbPorts := make([]struct {
+                Host      string `json:"host"`
+                Container string `json:"container"`
+        }, len(req.Ports))
+        for i, p := range req.Ports {
+                dbPorts[i].Host = p.Host
+                dbPorts[i].Container = p.Container
+                if req.RuntimeType == "php" || req.RuntimeType == "static" {
+                        dbPorts[i].Container = "80"
+                }
+        }
+        portsJSON, _ := json.Marshal(dbPorts)
 
 	// Save to DB immediately with status 'creating' (handled by the UI as error/stopped initially until Docker catches up)
 	dbContainer := models.Container{
@@ -169,9 +181,14 @@ func CreateWorkload(c *fiber.Ctx) error {
 
 		var ports []services.PortMapping
 		for _, p := range req.Ports {
+			containerPort := p.Container
+			// PHP+Apache 和 Nginx 固定监听 80 端口，忽略用户填写的容器端口
+			if req.RuntimeType == "php" || req.RuntimeType == "static" {
+				containerPort = "80"
+			}
 			ports = append(ports, services.PortMapping{
 				HostPort:      p.Host,
-				ContainerPort: p.Container,
+				ContainerPort: containerPort,
 			})
 		}
 
