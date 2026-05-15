@@ -237,17 +237,22 @@
               placeholder="例如: python app.py 或 gunicorn app:app"
             />
           </el-form-item>
-          <el-form-item label="依赖文件">
+          <!-- 有 requirements.txt 时显示依赖文件 -->
+          <el-form-item v-if="hasRequirementsTxt" label="依赖文件">
             <el-input
               v-model="deployForm.requirementsFile"
               placeholder="默认: requirements.txt（项目中有此文件则留空）"
+              disabled
             />
+            <div class="text-zinc-500 text-xs mt-1">已自动检测到 requirements.txt</div>
           </el-form-item>
-          <el-form-item label="附加依赖">
+          <!-- 没有 requirements.txt 时显示附加依赖 -->
+          <el-form-item v-else label="附加依赖">
             <el-input
               v-model="deployForm.dependencies"
-              placeholder="如需额外安装依赖，请用英文逗号隔开，例如: fastapi,uvicorn"
+              placeholder="请用英文逗号隔开依赖，例如: fastapi,uvicorn,requests"
             />
+            <div class="text-zinc-500 text-xs mt-1">未检测到 requirements.txt，请手动输入依赖</div>
           </el-form-item>
         </template>
 
@@ -549,40 +554,66 @@ const handleRuntimeTypeChange = (type: string) => {
 
 const availableScripts = ref<string[]>([])
 const hasPackageJson = ref(true)
+const hasRequirementsTxt = ref(false)
 
 const handleProjectDirChange = async (val: string[]) => {
   if (!val || val.length === 0) {
     availableScripts.value = []
     hasPackageJson.value = true
+    hasRequirementsTxt.value = false
     return
   }
   const path = '/' + val.join('/')
   const pkgJsonPath = `${path === '/' ? '' : path}/package.json`
+  const requirementsPath = `${path === '/' ? '' : path}/requirements.txt`
 
-  try {
-    const res = await readFile(pkgJsonPath)
-    if (res.code === 200 && res.data) {
-      hasPackageJson.value = true
-      const pkg = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
-      if (pkg && pkg.scripts) {
-        availableScripts.value = Object.keys(pkg.scripts)
-        if (availableScripts.value.length > 0 && !deployForm.startCommand) {
-          deployForm.startCommand = availableScripts.value[0]
+  // 检测 package.json (Node.js)
+  if (deployForm.runtimeType === 'nodejs') {
+    try {
+      const res = await readFile(pkgJsonPath)
+      if (res.code === 200 && res.data) {
+        hasPackageJson.value = true
+        const pkg = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
+        if (pkg && pkg.scripts) {
+          availableScripts.value = Object.keys(pkg.scripts)
+          if (availableScripts.value.length > 0 && !deployForm.startCommand) {
+            deployForm.startCommand = availableScripts.value[0]
+          }
+          ElMessage.success('已成功解析 package.json 脚本')
+        } else {
+          availableScripts.value = []
+          ElMessage.info('未发现 scripts 配置，请手动输入启动命令')
         }
-        ElMessage.success('已成功解析 package.json 脚本')
       } else {
+        hasPackageJson.value = false
         availableScripts.value = []
-        ElMessage.info('未发现 scripts 配置，请手动输入启动命令')
+        ElMessage.info('未找到 package.json，请手动输入启动命令。若需要安装依赖，请在下方填写')
       }
-    } else {
+    } catch (err) {
       hasPackageJson.value = false
       availableScripts.value = []
       ElMessage.info('未找到 package.json，请手动输入启动命令。若需要安装依赖，请在下方填写')
     }
-  } catch (err) {
-    hasPackageJson.value = false
-    availableScripts.value = []
-    ElMessage.info('未找到 package.json，请手动输入启动命令。若需要安装依赖，请在下方填写')
+  }
+
+  // 检测 requirements.txt (Python)
+  if (deployForm.runtimeType === 'python') {
+    try {
+      const res = await readFile(requirementsPath)
+      if (res.code === 200 && res.data) {
+        hasRequirementsTxt.value = true
+        deployForm.requirementsFile = 'requirements.txt'
+        ElMessage.success('已检测到 requirements.txt')
+      } else {
+        hasRequirementsTxt.value = false
+        deployForm.requirementsFile = ''
+        ElMessage.info('未找到 requirements.txt，可使用附加依赖手动输入')
+      }
+    } catch (err) {
+      hasRequirementsTxt.value = false
+      deployForm.requirementsFile = ''
+      ElMessage.info('未找到 requirements.txt，可使用附加依赖手动输入')
+    }
   }
 }
 
