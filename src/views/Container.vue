@@ -160,7 +160,7 @@
       custom-class="dark-dialog"
       :destroy-on-close="true"
     >
-      <el-form :model="deployForm" label-width="120px" class="mt-4 pr-8">
+      <el-form :model="deployForm" label-width="120px" class="mt-4 pr-8 max-h-[60vh] overflow-y-auto deploy-form-scroll">
         <el-form-item label="运行时类型" required>
           <el-select v-model="deployForm.runtimeType" class="w-full" @change="handleRuntimeTypeChange">
             <el-option label="Node.js" value="nodejs" />
@@ -1042,5 +1042,20 @@ onMounted(() => {
 .el-popper.is-light .el-popper__arrow::before {
   background: #18181b !important;
   border: 1px solid #27272a !important;
+}
+
+/* 部署对话框内部滚动条 */
+.deploy-form-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.deploy-form-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.deploy-form-scroll::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 2px;
+}
+.deploy-form-scroll::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
 }
 </style>
