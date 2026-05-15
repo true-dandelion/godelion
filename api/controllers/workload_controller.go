@@ -242,19 +242,19 @@ func CreateWorkload(c *fiber.Ctx) error {
 					break
 				}
 			}
-			// 构建启动命令：修改 Apache 监听端口 + 文档根目录 + 入口文件
+			// 构建启动命令：修改 Apache 监听端口 + 入口文件
 			var phpCmds []string
 			if phpPort != "80" {
 				phpCmds = append(phpCmds, 
 					fmt.Sprintf("sed -i 's/Listen 80/Listen %s/' /etc/apache2/ports.conf", phpPort),
-					fmt.Sprintf("sed -i 's/:80>/%s>/' /etc/apache2/sites-available/000-default.conf", phpPort),
+					fmt.Sprintf("sed -i 's/\\*:80/\\*:%s/' /etc/apache2/sites-available/000-default.conf", phpPort),
 				)
 			}
-			// PhpIndexFile 现在用于指定入口文件（如 php.php, home.php）
-			// 通过修改 Apache 的 DirectoryIndex 来实现
+			// PhpIndexFile 用于指定入口文件（如 php.php, home.php）
+			// 通过在 VirtualHost 中添加 DirectoryIndex 指令来实现
 			if req.PhpIndexFile != "" {
 				phpCmds = append(phpCmds, 
-					fmt.Sprintf("sed -i 's|^DirectoryIndex .*|DirectoryIndex %s|' /etc/apache2/mods-available/dir.conf", req.PhpIndexFile),
+					fmt.Sprintf("sed -i '/<VirtualHost/a\\        DirectoryIndex %s' /etc/apache2/sites-available/000-default.conf", req.PhpIndexFile),
 				)
 			}
 			phpCmds = append(phpCmds, "apache2-foreground")
