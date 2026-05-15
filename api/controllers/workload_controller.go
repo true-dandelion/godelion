@@ -29,12 +29,15 @@ func getWorkloadUserDir(userID string) string {
 func CreateWorkload(c *fiber.Ctx) error {
 	var req struct {
 		Name           string `json:"name"`
-		NodeVersion    string `json:"node_version"`
+		RuntimeType    string `json:"runtime_type"` // nodejs, python, go, php, static, binary
+		Image          string `json:"image"`
 		ProjectDir     string `json:"project_dir"`
 		StartCommand   string `json:"start_command"`
+		BuildCommand   string `json:"build_command"`
 		ContainerName  string `json:"container_name"`
 		PackageManager string `json:"package_manager"`
 		Dependencies   string `json:"dependencies"`
+		RequirementsFile string `json:"requirements_file"` // for Python
 		Ports          []struct {
 			Host      string `json:"host"`
 			Container string `json:"container"`
@@ -47,15 +50,66 @@ func CreateWorkload(c *fiber.Ctx) error {
 
 	userID := c.Locals("user_id").(string)
 
-	// Resolve the requested node version
-	baseImage := req.NodeVersion
-	if baseImage == "" {
-		baseImage = "node:24-alpine"
+	// 运行时类型配置
+	runtimeConfig := map[string]struct {
+		DefaultImage      string
+		DefaultWorkingDir string
+		DefaultMountDir   string
+	}{
+		"nodejs": {
+			DefaultImage:      "node:24-alpine",
+			DefaultWorkingDir: "/app",
+			DefaultMountDir:   "/app",
+		},
+		"python": {
+			DefaultImage:      "python:3.12-alpine",
+			DefaultWorkingDir: "/app",
+			DefaultMountDir:   "/app",
+		},
+		"go": {
+			DefaultImage:      "golang:1.22-alpine",
+			DefaultWorkingDir: "/app",
+			DefaultMountDir:   "/app",
+		},
+		"php": {
+			DefaultImage:      "php:8.3-apache",
+			DefaultWorkingDir: "/var/www/html",
+			DefaultMountDir:   "/var/www/html",
+		},
+		"static": {
+			DefaultImage:      "nginx:alpine",
+			DefaultWorkingDir: "/usr/share/nginx/html",
+			DefaultMountDir:   "/usr/share/nginx/html",
+		},
+		"binary": {
+			DefaultImage:      "alpine:latest",
+			DefaultWorkingDir: "/app",
+			DefaultMountDir:   "/app",
+		},
+		"c": {
+			DefaultImage:      "gcc:latest",
+			DefaultWorkingDir: "/app",
+			DefaultMountDir:   "/app",
+		},
+		"cpp": {
+			DefaultImage:      "gcc:latest",
+			DefaultWorkingDir: "/app",
+			DefaultMountDir:   "/app",
+		},
 	}
 
-	// We use standard image names directly (e.g. node:24-alpine).
-	// It's recommended to configure registry-mirrors in /etc/docker/daemon.json if pulling fails.
-	imageName := baseImage
+	// 使用选择的运行时类型配置
+	config, exists := runtimeConfig[req.RuntimeType]
+	if !exists {
+		config = runtimeConfig["nodejs"]
+		req.RuntimeType = "nodejs"
+	}
+
+	// 确定使用的镜像
+	imageName := req.Image
+	if imageName == "" {
+		imageName = config.DefaultImage
+	}
 	
 	// Pre-generate an ID for the container so we can save it to DB immediately
 	containerID := uuid.NewString()
@@ -80,13 +134,14 @@ func CreateWorkload(c *fiber.Ctx) error {
 		UserID:         userID,
 		Ports:          string(portsJSON),
 		ResourceLimits: req.ResourceLimits,
+		RuntimeType:    req.RuntimeType,
 	}
 
 	if err := db.DB.Create(&dbContainer).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save to db"})
 	}
 
-	LogAction(c, "Deploy", "Container", "Deployed container: "+req.Name)
+	LogAction(c, "Deploy", "Container", "Deployed container: "+req.Name+" (Type: "+req.RuntimeType+")")
 
 	// Run actual container pulling and creation asynchronously in a goroutine
 	go func() {
@@ -99,7 +154,7 @@ func CreateWorkload(c *fiber.Ctx) error {
 				Update("deployment_logs", gorm.Expr("IFNULL(deployment_logs, '') || ?", logLine))
 		}
 
-		appendLog(fmt.Sprintf("[Workload Async] Starting deployment for project '%s' (UUID: %s)", req.Name, containerID))
+		appendLog(fmt.Sprintf("[Workload Async] Starting deployment for project '%s' (UUID: %s, Type: %s)", req.Name, containerID, req.RuntimeType))
 		
 		// Use a background context since the request context will be cancelled when response returns
 		ctx := context.Background()
@@ -119,7 +174,7 @@ func CreateWorkload(c *fiber.Ctx) error {
 			})
 		}
 
-		// Mount the selected project directory to /app
+		// Mount the selected project directory to container's appropriate directory
 		userDir := getWorkloadUserDir(userID)
 		cleanVirtualPath := filepath.Clean(filepath.Join("/", req.ProjectDir))
 		physicalHostPath := filepath.Join(userDir, cleanVirtualPath)
@@ -127,30 +182,77 @@ func CreateWorkload(c *fiber.Ctx) error {
 		volumes := []services.VolumeMapping{
 			{
 				HostPath:      physicalHostPath,
-				ContainerPath: "/app",
+				ContainerPath: config.DefaultMountDir,
 			},
 		}
 
-		// Command to install dependencies and run start command
-		// If the command starts with "node ", we check if manual dependencies are provided
-		cmdStr := ""
-		if len(req.StartCommand) >= 5 && req.StartCommand[:5] == "node " {
-			if req.Dependencies != "" {
-				// Replace commas with spaces for npm install
-				deps := strings.ReplaceAll(req.Dependencies, ",", " ")
-				cmdStr = "npm install " + deps + " && " + req.StartCommand
+		// 根据不同运行时类型生成启动命令
+		var cmdStr string
+		var containerCmd []string
+
+		switch req.RuntimeType {
+		case "nodejs":
+			if len(req.StartCommand) >= 5 && req.StartCommand[:5] == "node " {
+				if req.Dependencies != "" {
+					deps := strings.ReplaceAll(req.Dependencies, ",", " ")
+					cmdStr = "npm install " + deps + " && " + req.StartCommand
+				} else {
+					cmdStr = req.StartCommand
+				}
+			} else {
+				cmdStr = req.PackageManager + " install && " + req.PackageManager + " run " + req.StartCommand
+			}
+			containerCmd = []string{"sh", "-c", cmdStr}
+
+		case "python":
+			requirementsPath := "requirements.txt"
+			if req.RequirementsFile != "" {
+				requirementsPath = req.RequirementsFile
+			}
+			cmdStr = fmt.Sprintf("pip install -r %s && %s", requirementsPath, req.StartCommand)
+			containerCmd = []string{"sh", "-c", cmdStr}
+
+		case "go":
+			if req.BuildCommand != "" {
+				cmdStr = fmt.Sprintf("%s && %s", req.BuildCommand, req.StartCommand)
 			} else {
 				cmdStr = req.StartCommand
 			}
-		} else {
-			// For standard npm/yarn/pnpm scripts, we install dependencies first then run the script
-			cmdStr = req.PackageManager + " install && " + req.PackageManager + " run " + req.StartCommand
+			containerCmd = []string{"sh", "-c", cmdStr}
+
+		case "php":
+			// PHP+Apache不需要额外启动命令，自动启动
+			containerCmd = []string{}
+
+		case "static":
+			// Nginx不需要额外启动命令
+			containerCmd = []string{}
+
+		case "binary":
+			containerCmd = []string{"sh", "-c", req.StartCommand}
+
+		case "c":
+			if req.BuildCommand != "" {
+				cmdStr = fmt.Sprintf("%s && %s", req.BuildCommand, req.StartCommand)
+			} else {
+				cmdStr = req.StartCommand
+			}
+			containerCmd = []string{"sh", "-c", cmdStr}
+
+		case "cpp":
+			if req.BuildCommand != "" {
+				cmdStr = fmt.Sprintf("%s && %s", req.BuildCommand, req.StartCommand)
+			} else {
+				cmdStr = req.StartCommand
+			}
+			containerCmd = []string{"sh", "-c", cmdStr}
+
+		default:
+			containerCmd = []string{"sh", "-c", req.StartCommand}
 		}
-		
-		containerCmd := []string{"sh", "-c", cmdStr}
 
 		// Actual Docker container creation
-		realContainerID, err := services.CreateContainer(ctx, req.ContainerName, imageName, ports, volumes, containerCmd, "/app")
+		realContainerID, err := services.CreateContainer(ctx, req.ContainerName, imageName, ports, volumes, containerCmd, config.DefaultWorkingDir)
 		if err != nil {
 			appendLog(fmt.Sprintf("[Workload Async Error] Failed to create container for '%s': %v", req.Name, err))
 			return

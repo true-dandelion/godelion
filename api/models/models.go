@@ -29,6 +29,7 @@ type Container struct {
         DeploymentLogs string         `gorm:"type:text" json:"deployment_logs"` // Stores logs during the async creation phase
         ActionLogs     string         `gorm:"type:text" json:"action_logs"`     // Stores manual start/stop action history
         Status         string         `gorm:"-" json:"status"` // Transient, fetched from Docker
+        RuntimeType    string         `gorm:"default:'nodejs'" json:"runtime_type"` // Runtime type: nodejs, python, go, php, static, binary
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`

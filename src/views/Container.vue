@@ -42,6 +42,14 @@
           </template>
         </el-table-column>
         
+        <el-table-column prop="runtimeType" label="类型" width="120">
+          <template #default="{ row }">
+            <el-tag size="small" :type="getRuntimeTypeTagType(row.runtimeType)" class="!font-medium">
+              {{ getRuntimeTypeName(row.runtimeType) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+
         <el-table-column prop="image" label="镜像" min-width="200">
           <template #default="{ row }">
             <span class="text-zinc-400 font-mono text-sm bg-zinc-800/50 px-2 py-1 rounded border border-zinc-700/50">{{ row.image }}</span>
@@ -147,21 +155,31 @@
     <!-- 部署容器对话框 -->
     <el-dialog
       v-model="deployDialogVisible"
-      title="部署前端/Node.js 项目"
+      title="部署项目"
       width="650px"
       custom-class="dark-dialog"
       :destroy-on-close="true"
     >
       <el-form :model="deployForm" label-width="120px" class="mt-4 pr-8">
-        <el-form-item label="名称" required>
-          <el-input v-model="deployForm.name" placeholder="例如: my-vue-app" />
+        <el-form-item label="运行时类型" required>
+          <el-select v-model="deployForm.runtimeType" class="w-full" @change="handleRuntimeTypeChange">
+            <el-option label="Node.js" value="nodejs" />
+            <el-option label="Python" value="python" />
+            <el-option label="Go" value="go" />
+            <el-option label="PHP" value="php" />
+            <el-option label="静态页面 (Nginx)" value="static" />
+            <el-option label="C" value="c" />
+            <el-option label="C++" value="cpp" />
+            <el-option label="二进制程序" value="binary" />
+          </el-select>
         </el-form-item>
 
-        <el-form-item label="Node.js 版本" required>
-          <el-select v-model="deployForm.nodeVersion" class="w-full">
-            <el-option label="Node 24 Alpine" value="node:24-alpine" />
-            <el-option label="Node 25 Alpine" value="node:25-alpine" />
-          </el-select>
+        <el-form-item label="名称" required>
+          <el-input v-model="deployForm.name" placeholder="例如: my-app" />
+        </el-form-item>
+
+        <el-form-item label="镜像版本" required>
+          <el-input v-model="deployForm.image" :placeholder="getDefaultImagePlaceholder(deployForm.runtimeType)" />
         </el-form-item>
 
         <el-form-item label="项目目录" required>
@@ -175,48 +193,146 @@
           />
         </el-form-item>
 
-        <el-form-item label="启动命令" required>
-          <el-select 
-            v-model="deployForm.startCommand" 
-            placeholder="选择解析的脚本，或手动输入 (如 node app.js)" 
-            class="w-full"
-            filterable
-            allow-create
-            default-first-option
-          >
-            <el-option 
-              v-for="cmd in availableScripts" 
-              :key="cmd" 
-              :label="cmd" 
-              :value="cmd" 
+        <!-- Node.js 特定字段 -->
+        <template v-if="deployForm.runtimeType === 'nodejs'">
+          <el-form-item label="启动命令" required>
+            <el-select 
+              v-model="deployForm.startCommand" 
+              placeholder="选择解析的脚本，或手动输入 (如 node app.js)" 
+              class="w-full"
+              filterable
+              allow-create
+              default-first-option
+            >
+              <el-option 
+                v-for="cmd in availableScripts" 
+                :key="cmd" 
+                :label="cmd" 
+                :value="cmd" 
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="包管理器" v-if="hasPackageJson">
+            <el-select v-model="deployForm.packageManager" class="w-full">
+              <el-option label="npm" value="npm" />
+              <el-option label="yarn" value="yarn" />
+              <el-option label="pnpm" value="pnpm" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="附加依赖" v-if="!hasPackageJson">
+            <el-input 
+              v-model="deployForm.dependencies" 
+              placeholder="如需安装依赖，请用英文逗号隔开，例如: express,uuid" 
             />
-          </el-select>
-        </el-form-item>
+          </el-form-item>
+        </template>
 
-        <el-form-item label="容器名称" required>
-          <el-input v-model="deployForm.containerName" placeholder="例如: my-vue-app-container" />
-        </el-form-item>
+        <!-- Python 特定字段 -->
+        <template v-if="deployForm.runtimeType === 'python'">
+          <el-form-item label="启动命令" required>
+            <el-input 
+              v-model="deployForm.startCommand" 
+              placeholder="例如: python app.py 或 gunicorn app:app" 
+            />
+          </el-form-item>
+          <el-form-item label="依赖文件">
+            <el-input 
+              v-model="deployForm.requirementsFile" 
+              placeholder="默认: requirements.txt" 
+            />
+          </el-form-item>
+        </template>
 
-        <el-form-item label="包管理器" required v-if="hasPackageJson">
-          <el-select v-model="deployForm.packageManager" class="w-full">
-            <el-option label="npm" value="npm" />
-            <el-option label="yarn" value="yarn" />
-            <el-option label="pnpm" value="pnpm" />
-          </el-select>
-        </el-form-item>
+        <!-- Go 特定字段 -->
+        <template v-if="deployForm.runtimeType === 'go'">
+          <el-form-item label="编译命令">
+            <el-input 
+              v-model="deployForm.buildCommand" 
+              placeholder="例如: go build -o app main.go (可选)" 
+            />
+          </el-form-item>
+          <el-form-item label="启动命令" required>
+            <el-input 
+              v-model="deployForm.startCommand" 
+              placeholder="例如: ./app (或 go run main.go)" 
+            />
+          </el-form-item>
+        </template>
 
-        <el-form-item label="附加依赖" v-if="!hasPackageJson">
-          <el-input 
-            v-model="deployForm.dependencies" 
-            placeholder="如需安装依赖，请用英文逗号隔开，例如: express, uuid" 
-          />
+        <!-- C 特定字段 -->
+        <template v-if="deployForm.runtimeType === 'c'">
+          <el-form-item label="编译命令">
+            <el-input 
+              v-model="deployForm.buildCommand" 
+              placeholder="例如: gcc -o app main.c (可选)" 
+            />
+          </el-form-item>
+          <el-form-item label="启动命令" required>
+            <el-input 
+              v-model="deployForm.startCommand" 
+              placeholder="例如: ./app" 
+            />
+          </el-form-item>
+        </template>
+
+        <!-- C++ 特定字段 -->
+        <template v-if="deployForm.runtimeType === 'cpp'">
+          <el-form-item label="编译命令">
+            <el-input 
+              v-model="deployForm.buildCommand" 
+              placeholder="例如: g++ -o app main.cpp (可选)" 
+            />
+          </el-form-item>
+          <el-form-item label="启动命令" required>
+            <el-input 
+              v-model="deployForm.startCommand" 
+              placeholder="例如: ./app" 
+            />
+          </el-form-item>
+        </template>
+
+        <!-- PHP 特定字段 -->
+        <template v-if="deployForm.runtimeType === 'php'">
+          <el-form-item label="说明">
+            <div class="text-zinc-400 text-sm">
+              PHP + Apache 容器会自动启动，不需要启动命令。
+              项目将被挂载到 /var/www/html 目录。
+            </div>
+          </el-form-item>
+        </template>
+
+        <!-- 静态页面特定字段 -->
+        <template v-if="deployForm.runtimeType === 'static'">
+          <el-form-item label="说明">
+            <div class="text-zinc-400 text-sm">
+              Nginx 静态文件服务器会自动启动，不需要启动命令。
+              项目将被挂载到 /usr/share/nginx/html 目录。
+            </div>
+          </el-form-item>
+        </template>
+
+        <!-- 二进制程序特定字段 -->
+        <template v-if="deployForm.runtimeType === 'binary'">
+          <el-form-item label="启动命令" required>
+            <el-input 
+              v-model="deployForm.startCommand" 
+              placeholder="例如: ./myapp --port=8080" 
+            />
+          </el-form-item>
+        </template>
+
+        <!-- 通用字段 -->
+        <el-form-item label="容器名称">
+          <el-input v-model="deployForm.containerName" placeholder="例如: my-app-container" />
         </el-form-item>
 
         <el-form-item label="端口映射">
           <div v-for="(port, index) in deployForm.ports" :key="index" class="flex gap-2 mb-2">
             <el-input v-model="port.host" placeholder="主机端口" class="flex-1" />
             <span class="text-zinc-500 pt-1">:</span>
-            <el-input v-model="port.container" placeholder="容器端口 (例如 5173)" class="flex-1" />
+            <el-input v-model="port.container" :placeholder="getDefaultContainerPortPlaceholder(deployForm.runtimeType)" class="flex-1" />
             <el-button type="danger" link @click="removePort(index)">
               <el-icon><Remove /></el-icon>
             </el-button>
@@ -360,17 +476,56 @@ const fetchLogs = async () => {
 }
 
 const deployForm = reactive({
-  name: '',
-  nodeVersion: 'node:24-alpine',
-  projectDir: [] as string[],
-  startCommand: '',
-  containerName: '',
-  packageManager: 'npm',
-  dependencies: '', // for comma-separated deps
-  ports: [{ host: '', container: '' }],
-  cpu: 1,
-  memory: '512m'
+	name: '',
+	runtimeType: 'nodejs',
+	image: '',
+	projectDir: [] as string[],
+	startCommand: '',
+	buildCommand: '', // for Go
+	containerName: '',
+	packageManager: 'npm',
+	dependencies: '', // for comma-separated deps (Node.js)
+	requirementsFile: '', // for Python
+	ports: [{ host: '', container: '' }],
+	cpu: 1,
+	memory: '512m'
 })
+
+// 运行时类型默认配置
+const runtimeDefaults = {
+	nodejs: { image: 'node:24-alpine', containerPort: '3000' },
+	python: { image: 'python:3.12-alpine', containerPort: '5000' },
+	go: { image: 'golang:1.22-alpine', containerPort: '8080' },
+	php: { image: 'php:8.3-apache', containerPort: '80' },
+	static: { image: 'nginx:alpine', containerPort: '80' },
+	c: { image: 'gcc:latest', containerPort: '8080' },
+	cpp: { image: 'gcc:latest', containerPort: '8080' },
+	binary: { image: 'alpine:latest', containerPort: '8080' }
+}
+
+// 获取默认镜像占位符
+const getDefaultImagePlaceholder = (type: string) => {
+	return runtimeDefaults[type as keyof typeof runtimeDefaults]?.image || ''
+}
+
+// 获取默认容器端口占位符
+const getDefaultContainerPortPlaceholder = (type: string) => {
+	return runtimeDefaults[type as keyof typeof runtimeDefaults]?.containerPort || ''
+}
+
+// 处理运行时类型变更
+const handleRuntimeTypeChange = (type: string) => {
+	// 设置默认镜像
+	deployForm.image = getDefaultImagePlaceholder(type)
+	// 设置默认端口
+	if (deployForm.ports.length > 0 && deployForm.ports[0].container === '') {
+		deployForm.ports[0].container = getDefaultContainerPortPlaceholder(type)
+	}
+	// 重置其他字段
+	deployForm.startCommand = ''
+	deployForm.availableScripts = []
+	deployForm.hasPackageJson = true
+}
 
 const availableScripts = ref<string[]>([])
 const hasPackageJson = ref(true)
@@ -617,53 +772,134 @@ const submitEdit = async () => {
 }
 
 const handleDeploy = async () => {
-  if (!deployForm.name || !deployForm.projectDir.length || !deployForm.containerName || !deployForm.startCommand) {
-    ElMessage.warning('请填写完整的容器和项目信息')
-    return
-  }
-  loading.value = true
-  
-  try {
-    // 只要主机端口或容器端口任意一个存在，就保留
-    const validPorts = deployForm.ports.filter(p => p.host || p.container)
-    
-    // Resolve project directory path
-    const projectDirPath = '/' + deployForm.projectDir.join('/')
+	// 验证必填字段
+	if (!deployForm.name || !deployForm.projectDir.length) {
+		ElMessage.warning('请填写完整的容器和项目信息')
+		return
+	}
+	
+	// 根据运行时类型验证不同的必填字段
+	if (deployForm.runtimeType !== 'php' && deployForm.runtimeType !== 'static') {
+		if (!deployForm.startCommand) {
+			ElMessage.warning('请填写启动命令')
+			return
+		}
+	}
+	
+	if (!deployForm.containerName) {
+		// 如果未提供容器名称，自动生成一个
+		deployForm.containerName = deployForm.name.toLowerCase().replace(/\s+/g, '-') + '-container'
+	}
+	
+	loading.value = true
+	
+	try {
+		// 只要主机端口或容器端口任意一个存在，就保留
+		const validPorts = deployForm.ports.filter(p => p.host || p.container)
+		
+		// Resolve project directory path
+		const projectDirPath = '/' + deployForm.projectDir.join('/')
 
-    const payload = {
-      name: deployForm.name,
-      node_version: deployForm.nodeVersion,
-      project_dir: projectDirPath,
-      start_command: deployForm.startCommand,
-      container_name: deployForm.containerName,
-      package_manager: deployForm.packageManager,
-      dependencies: deployForm.dependencies,
-      ports: validPorts,
-      resource_limits: `cpu=${deployForm.cpu},mem=${deployForm.memory}`
-    }
-    
-    const res = await createWorkload(payload)
-    if (res.code === 200) {
-      ElMessage.success('前端/Node项目部署成功')
-      deployDialogVisible.value = false
-      deployForm.name = ''
-      deployForm.nodeVersion = 'node:24-alpine'
-      deployForm.projectDir = []
-      deployForm.startCommand = ''
-      deployForm.containerName = ''
-      deployForm.packageManager = 'npm'
-      deployForm.dependencies = ''
-      deployForm.ports = [{ host: '', container: '' }]
-      availableScripts.value = []
-      fetchContainers()
-    } else {
-      ElMessage.error(res.message || '创建失败')
-    }
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.error || '创建异常')
-  } finally {
-    loading.value = false
-  }
+		// 构建通用 payload
+		const payload: any = {
+			name: deployForm.name,
+			runtime_type: deployForm.runtimeType,
+			project_dir: projectDirPath,
+			container_name: deployForm.containerName,
+			ports: validPorts,
+			resource_limits: `cpu=${deployForm.cpu},mem=${deployForm.memory}`
+		}
+		
+		// 如果用户自定义了镜像
+		if (deployForm.image) {
+			payload.image = deployForm.image
+		}
+		
+		// 根据运行时类型添加不同字段
+		if (deployForm.runtimeType === 'nodejs') {
+			payload.start_command = deployForm.startCommand
+			payload.package_manager = deployForm.packageManager
+			payload.dependencies = deployForm.dependencies
+		} else if (deployForm.runtimeType === 'python') {
+			payload.start_command = deployForm.startCommand
+			payload.requirements_file = deployForm.requirementsFile
+		} else if (deployForm.runtimeType === 'go') {
+			payload.start_command = deployForm.startCommand
+			payload.build_command = deployForm.buildCommand
+		} else if (deployForm.runtimeType === 'c') {
+			payload.start_command = deployForm.startCommand
+			payload.build_command = deployForm.buildCommand
+		} else if (deployForm.runtimeType === 'cpp') {
+			payload.start_command = deployForm.startCommand
+			payload.build_command = deployForm.buildCommand
+		} else if (deployForm.runtimeType === 'binary') {
+			payload.start_command = deployForm.startCommand
+		}
+		// php 和 static 不需要启动命令
+		
+		const res = await createWorkload(payload)
+		if (res.code === 200) {
+			ElMessage.success(`项目部署成功 (${getRuntimeTypeName(deployForm.runtimeType)})`)
+			deployDialogVisible.value = false
+			resetDeployForm()
+			fetchContainers()
+		} else {
+			ElMessage.error(res.message || '创建失败')
+		}
+	} catch (error: any) {
+		ElMessage.error(error.response?.data?.error || '创建异常')
+	} finally {
+		loading.value = false
+	}
+}
+
+// 重置部署表单
+const resetDeployForm = () => {
+	deployForm.name = ''
+	deployForm.runtimeType = 'nodejs'
+	deployForm.image = ''
+	deployForm.projectDir = []
+	deployForm.startCommand = ''
+	deployForm.buildCommand = ''
+	deployForm.containerName = ''
+	deployForm.packageManager = 'npm'
+	deployForm.dependencies = ''
+	deployForm.requirementsFile = ''
+	deployForm.ports = [{ host: '', container: '' }]
+	deployForm.cpu = 1
+	deployForm.memory = '512m'
+	availableScripts.value = []
+	hasPackageJson.value = true
+}
+
+// 获取运行时类型的友好名称
+const getRuntimeTypeName = (type: string) => {
+	const names: Record<string, string> = {
+		nodejs: 'Node.js',
+		python: 'Python',
+		go: 'Go',
+		php: 'PHP',
+		static: '静态页面',
+		c: 'C',
+		cpp: 'C++',
+		binary: '二进制程序'
+	}
+	return names[type] || type
+}
+
+// 获取运行时类型对应的标签颜色
+const getRuntimeTypeTagType = (type: string) => {
+	const types: Record<string, any> = {
+		nodejs: 'primary',
+		python: 'success',
+		go: 'info',
+		php: 'warning',
+		static: '',
+		c: 'danger',
+		cpp: 'danger',
+		binary: 'danger'
+	}
+	return types[type] || ''
 }
 
 onMounted(() => {
