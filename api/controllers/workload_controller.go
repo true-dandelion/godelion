@@ -195,21 +195,32 @@ func CreateWorkload(c *fiber.Ctx) error {
 			if len(req.StartCommand) >= 5 && req.StartCommand[:5] == "node " {
 				if req.Dependencies != "" {
 					deps := strings.ReplaceAll(req.Dependencies, ",", " ")
-					cmdStr = "npm install " + deps + " && " + req.StartCommand
+					cmdStr = fmt.Sprintf("if [ ! -f .godelion_deps_installed ]; then npm install %s && touch .godelion_deps_installed; fi && %s", deps, req.StartCommand)
 				} else {
 					cmdStr = req.StartCommand
 				}
 			} else {
-				cmdStr = req.PackageManager + " install && " + req.PackageManager + " run " + req.StartCommand
+				cmdStr = fmt.Sprintf("if [ ! -f .godelion_deps_installed ]; then %s install && touch .godelion_deps_installed; fi && %s run %s", req.PackageManager, req.PackageManager, req.StartCommand)
 			}
 			containerCmd = []string{"sh", "-c", cmdStr}
 
 		case "python":
-			requirementsPath := "requirements.txt"
+			// Build install commands
+			installCmds := []string{}
 			if req.RequirementsFile != "" {
-				requirementsPath = req.RequirementsFile
+				installCmds = append(installCmds, fmt.Sprintf("pip install -r %s", req.RequirementsFile))
 			}
-			cmdStr = fmt.Sprintf("pip install -r %s && %s", requirementsPath, req.StartCommand)
+			if req.Dependencies != "" {
+				deps := strings.ReplaceAll(req.Dependencies, ",", " ")
+				installCmds = append(installCmds, fmt.Sprintf("pip install %s", deps))
+			}
+			if len(installCmds) > 0 {
+				// Use a marker file to avoid re-installing on container restart
+				installScript := strings.Join(installCmds, " && ")
+				cmdStr = fmt.Sprintf("if [ ! -f .godelion_deps_installed ]; then %s && touch .godelion_deps_installed; fi && %s", installScript, req.StartCommand)
+			} else {
+				cmdStr = req.StartCommand
+			}
 			containerCmd = []string{"sh", "-c", cmdStr}
 
 		case "go":

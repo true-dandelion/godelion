@@ -144,9 +144,9 @@ func GetContainerLogs(ctx context.Context, containerID string) (string, error) {
 		ShowStdout: true,
 		ShowStderr: true,
 		Timestamps: true,
-		Tail:       "100", // get last 100 lines
+		Tail:       "500",
 	}
-	
+
 	out, err := DockerClient.ContainerLogs(ctx, containerID, options)
 	if err != nil {
 		return "", err
@@ -158,7 +158,7 @@ func GetContainerLogs(ctx context.Context, containerID string) (string, error) {
 	// Since we are reading directly from the stream, if Tty is false we MUST demux it.
 	stdout := new(strings.Builder)
 	stderr := new(strings.Builder)
-	
+
 	// Check if container was created with TTY
 	inspect, err := DockerClient.ContainerInspect(ctx, containerID)
 	if err == nil && inspect.Config.Tty {

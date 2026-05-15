@@ -232,15 +232,21 @@
         <!-- Python 特定字段 -->
         <template v-if="deployForm.runtimeType === 'python'">
           <el-form-item label="启动命令" required>
-            <el-input 
-              v-model="deployForm.startCommand" 
-              placeholder="例如: python app.py 或 gunicorn app:app" 
+            <el-input
+              v-model="deployForm.startCommand"
+              placeholder="例如: python app.py 或 gunicorn app:app"
             />
           </el-form-item>
           <el-form-item label="依赖文件">
-            <el-input 
-              v-model="deployForm.requirementsFile" 
-              placeholder="默认: requirements.txt" 
+            <el-input
+              v-model="deployForm.requirementsFile"
+              placeholder="默认: requirements.txt（项目中有此文件则留空）"
+            />
+          </el-form-item>
+          <el-form-item label="附加依赖">
+            <el-input
+              v-model="deployForm.dependencies"
+              placeholder="如需额外安装依赖，请用英文逗号隔开，例如: fastapi,uvicorn"
             />
           </el-form-item>
         </template>
@@ -570,14 +576,14 @@ const folderProps = {
   lazy: true,
   checkStrictly: true,
   async lazyLoad(node: any, resolve: any) {
-    const { level, path } = node
-    
+    const { level, pathValues } = node
+
     try {
       // 动态解析真实路径以查询后端
-      const currentPath = level === 0 
-        ? '/' 
-        : '/' + path.join('/')
-        
+      const currentPath = level === 0
+        ? '/'
+        : '/' + pathValues.join('/')
+
       const res = await getFiles(currentPath)
       let items: any[] = []
 
@@ -823,6 +829,7 @@ const handleDeploy = async () => {
 		} else if (deployForm.runtimeType === 'python') {
 			payload.start_command = deployForm.startCommand
 			payload.requirements_file = deployForm.requirementsFile
+			payload.dependencies = deployForm.dependencies
 		} else if (deployForm.runtimeType === 'go') {
 			payload.start_command = deployForm.startCommand
 			payload.build_command = deployForm.buildCommand
