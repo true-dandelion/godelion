@@ -124,19 +124,7 @@ func CreateWorkload(c *fiber.Ctx) error {
                         }
                 }
         }
-        // PHP/Static 容器端口固定为 80，修正后再存入数据库供代理使用
-        dbPorts := make([]struct {
-                Host      string `json:"host"`
-                Container string `json:"container"`
-        }, len(req.Ports))
-        for i, p := range req.Ports {
-                dbPorts[i].Host = p.Host
-                dbPorts[i].Container = p.Container
-                if req.RuntimeType == "php" || req.RuntimeType == "static" {
-                        dbPorts[i].Container = "80"
-                }
-        }
-        portsJSON, _ := json.Marshal(dbPorts)
+        portsJSON, _ := json.Marshal(req.Ports)
 
 	// Save to DB immediately with status 'creating' (handled by the UI as error/stopped initially until Docker catches up)
 	dbContainer := models.Container{
@@ -181,14 +169,9 @@ func CreateWorkload(c *fiber.Ctx) error {
 
 		var ports []services.PortMapping
 		for _, p := range req.Ports {
-			containerPort := p.Container
-			// PHP+Apache 和 Nginx 固定监听 80 端口
-			if req.RuntimeType == "php" || req.RuntimeType == "static" {
-				containerPort = "80"
-			}
 			ports = append(ports, services.PortMapping{
 				HostPort:      p.Host,
-				ContainerPort: containerPort,
+				ContainerPort: p.Container,
 			})
 		}
 
@@ -250,12 +233,47 @@ func CreateWorkload(c *fiber.Ctx) error {
 			containerCmd = []string{"sh", "-c", cmdStr}
 
 		case "php":
-			// PHP+Apache 使用镜像默认命令启动，通过环境变量配置文档根目录
-			containerCmd = []string{}
+			// 获取用户指定的容器端口
+			phpPort := "80"
+			for _, p := range req.Ports {
+				if p.Container != "" {
+					phpPort = p.Container
+					break
+				}
+			}
+			// 构建启动命令：修改 Apache 监听端口 + 文档根目录
+			var phpCmds []string
+			if phpPort != "80" {
+				phpCmds = append(phpCmds, 
+					fmt.Sprintf("sed -i 's/Listen 80/Listen %s/' /etc/apache2/ports.conf", phpPort),
+					fmt.Sprintf("sed -i 's/:80>/%s>/' /etc/apache2/sites-available/000-default.conf", phpPort),
+				)
+			}
+			if req.PhpIndexFile != "" {
+				phpCmds = append(phpCmds, 
+					fmt.Sprintf("sed -i 's|^DocumentRoot .*|DocumentRoot /var/www/html/%s|' /etc/apache2/sites-available/000-default.conf", req.PhpIndexFile),
+				)
+			}
+			phpCmds = append(phpCmds, "apache2-foreground")
+			cmdStr = strings.Join(phpCmds, " && ")
+			containerCmd = []string{"sh", "-c", cmdStr}
 
 		case "static":
-			// Nginx 使用镜像默认命令启动
-			containerCmd = []string{}
+			// 获取用户指定的容器端口
+			staticPort := "80"
+			for _, p := range req.Ports {
+				if p.Container != "" {
+					staticPort = p.Container
+					break
+				}
+			}
+			// 构建启动命令：修改 Nginx 监听端口
+			if staticPort != "80" {
+				cmdStr = fmt.Sprintf("sed -i 's/listen 80/listen %s/' /etc/nginx/conf.d/default.conf && sed -i 's/listen \\[::\\]:80/listen \\[::\\]:%s/' /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'", staticPort, staticPort)
+				containerCmd = []string{"sh", "-c", cmdStr}
+			} else {
+				containerCmd = []string{}
+			}
 
 		case "binary":
 			containerCmd = []string{"sh", "-c", req.StartCommand}
@@ -280,15 +298,8 @@ func CreateWorkload(c *fiber.Ctx) error {
 			containerCmd = []string{"sh", "-c", req.StartCommand}
 		}
 
-		// Build environment variables
-		var envVars []string
-		if req.RuntimeType == "php" && req.PhpIndexFile != "" {
-			// APACHE_DOCUMENT_ROOT 设置文档根目录（相对于挂载目录）
-			envVars = append(envVars, fmt.Sprintf("APACHE_DOCUMENT_ROOT=/var/www/html/%s", req.PhpIndexFile))
-		}
-
 		// Actual Docker container creation
-		realContainerID, err := services.CreateContainer(ctx, req.ContainerName, imageName, ports, volumes, containerCmd, config.DefaultWorkingDir, envVars)
+		realContainerID, err := services.CreateContainer(ctx, req.ContainerName, imageName, ports, volumes, containerCmd, config.DefaultWorkingDir, nil)
 		if err != nil {
 			appendLog(fmt.Sprintf("[Workload Async Error] Failed to create container for '%s': %v", req.Name, err))
 			return
