@@ -39,6 +39,7 @@ func CreateWorkload(c *fiber.Ctx) error {
 		Dependencies   string `json:"dependencies"`
 		RequirementsFile string `json:"requirements_file"` // for Python
 		PhpIndexFile   string `json:"php_index_file"` // for PHP
+		StaticIndexFile string `json:"static_index_file"` // for Static (Nginx)
 		Ports          []struct {
 			Host      string `json:"host"`
 			Container string `json:"container"`
@@ -241,7 +242,7 @@ func CreateWorkload(c *fiber.Ctx) error {
 					break
 				}
 			}
-			// 构建启动命令：修改 Apache 监听端口 + 文档根目录
+			// 构建启动命令：修改 Apache 监听端口 + 文档根目录 + 入口文件
 			var phpCmds []string
 			if phpPort != "80" {
 				phpCmds = append(phpCmds, 
@@ -249,9 +250,11 @@ func CreateWorkload(c *fiber.Ctx) error {
 					fmt.Sprintf("sed -i 's/:80>/%s>/' /etc/apache2/sites-available/000-default.conf", phpPort),
 				)
 			}
+			// PhpIndexFile 现在用于指定入口文件（如 php.php, home.php）
+			// 通过修改 Apache 的 DirectoryIndex 来实现
 			if req.PhpIndexFile != "" {
 				phpCmds = append(phpCmds, 
-					fmt.Sprintf("sed -i 's|^DocumentRoot .*|DocumentRoot /var/www/html/%s|' /etc/apache2/sites-available/000-default.conf", req.PhpIndexFile),
+					fmt.Sprintf("sed -i 's|^DirectoryIndex .*|DirectoryIndex %s|' /etc/apache2/mods-available/dir.conf", req.PhpIndexFile),
 				)
 			}
 			phpCmds = append(phpCmds, "apache2-foreground")
@@ -267,13 +270,24 @@ func CreateWorkload(c *fiber.Ctx) error {
 					break
 				}
 			}
-			// 构建启动命令：修改 Nginx 监听端口
+			// 构建启动命令：修改 Nginx 监听端口 + 入口文件
+			var staticCmds []string
 			if staticPort != "80" {
-				cmdStr = fmt.Sprintf("sed -i 's/listen 80/listen %s/' /etc/nginx/conf.d/default.conf && sed -i 's/listen \\[::\\]:80/listen \\[::\\]:%s/' /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'", staticPort, staticPort)
-				containerCmd = []string{"sh", "-c", cmdStr}
-			} else {
-				containerCmd = []string{}
+				staticCmds = append(staticCmds, 
+					fmt.Sprintf("sed -i 's/listen 80/listen %s/' /etc/nginx/conf.d/default.conf", staticPort),
+					fmt.Sprintf("sed -i 's/listen \\[::\\]:80/listen \\[::\\]:%s/' /etc/nginx/conf.d/default.conf", staticPort),
+				)
 			}
+			// StaticIndexFile 用于指定入口文件（如 home.html, index.htm）
+			// 通过修改 Nginx 的 index 指令来实现
+			if req.StaticIndexFile != "" {
+				staticCmds = append(staticCmds, 
+					fmt.Sprintf("sed -i 's|^index .*|index %s;|' /etc/nginx/conf.d/default.conf", req.StaticIndexFile),
+				)
+			}
+			staticCmds = append(staticCmds, "nginx -g 'daemon off;'")
+			cmdStr = strings.Join(staticCmds, " && ")
+			containerCmd = []string{"sh", "-c", cmdStr}
 
 		case "binary":
 			containerCmd = []string{"sh", "-c", req.StartCommand}

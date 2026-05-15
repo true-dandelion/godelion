@@ -301,10 +301,10 @@
 
         <!-- PHP 特定字段 -->
         <template v-if="deployForm.runtimeType === 'php'">
-          <el-form-item label="文档根目录">
+          <el-form-item label="入口文件">
             <el-input
               v-model="deployForm.phpIndexFile"
-              placeholder="例如: public（相对于项目目录，留空则默认项目根目录）"
+              placeholder="例如: php.php（留空则默认 index.php）"
             />
           </el-form-item>
           <el-form-item label="说明">
@@ -317,6 +317,12 @@
 
         <!-- 静态页面特定字段 -->
         <template v-if="deployForm.runtimeType === 'static'">
+          <el-form-item label="入口文件">
+            <el-input
+              v-model="deployForm.staticIndexFile"
+              placeholder="例如: home.html（留空则默认 index.html）"
+            />
+          </el-form-item>
           <el-form-item label="说明">
             <div class="text-zinc-400 text-sm">
               Nginx 静态文件服务器会自动启动，不需要启动命令。
@@ -499,6 +505,7 @@ const deployForm = reactive({
 	dependencies: '', // for comma-separated deps (Node.js)
 	requirementsFile: '', // for Python
 	phpIndexFile: '', // for PHP
+	staticIndexFile: '', // for Static (Nginx)
 	ports: [{ host: '', container: '' }],
 	cpu: 1,
 	memory: '512m'
@@ -850,6 +857,8 @@ const handleDeploy = async () => {
 			payload.start_command = deployForm.startCommand
 		} else if (deployForm.runtimeType === 'php') {
 			payload.php_index_file = deployForm.phpIndexFile
+		} else if (deployForm.runtimeType === 'static') {
+			payload.static_index_file = deployForm.staticIndexFile
 		}
 		// static 不需要启动命令
 		
@@ -882,6 +891,7 @@ const resetDeployForm = () => {
 	deployForm.dependencies = ''
 	deployForm.requirementsFile = ''
 	deployForm.phpIndexFile = ''
+	deployForm.staticIndexFile = ''
 	deployForm.ports = [{ host: '', container: '' }]
 	deployForm.cpu = 1
 	deployForm.memory = '512m'

@@ -59,7 +59,7 @@
       </el-menu>
 
       <div class="p-4 border-t border-zinc-800 text-center text-xs text-zinc-500">
-        <span v-if="!isCollapse">v1.0.0-beta</span>
+        <span v-if="!isCollapse">v1.0.5</span>
       </div>
     </el-aside>
 
