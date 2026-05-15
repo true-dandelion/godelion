@@ -301,10 +301,10 @@
 
         <!-- PHP 特定字段 -->
         <template v-if="deployForm.runtimeType === 'php'">
-          <el-form-item label="入口文件">
+          <el-form-item label="文档根目录">
             <el-input
               v-model="deployForm.phpIndexFile"
-              placeholder="默认: index.php（如项目根目录下没有此文件，请填写实际入口文件）"
+              placeholder="例如: public（相对于项目目录，留空则默认项目根目录）"
             />
           </el-form-item>
           <el-form-item label="说明">

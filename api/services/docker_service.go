@@ -50,7 +50,7 @@ type VolumeMapping struct {
 	ContainerPath string
 }
 
-func CreateContainer(ctx context.Context, name string, img string, ports []PortMapping, volumes []VolumeMapping, cmd []string, workingDir string) (string, error) {
+func CreateContainer(ctx context.Context, name string, img string, ports []PortMapping, volumes []VolumeMapping, cmd []string, workingDir string, envVars []string) (string, error) {
 	log.Printf("[Docker] Creating container '%s' with image '%s'", name, img)
 	// Parse ports (we only expose them to docker network, NO host port bindings)
 	exposedPorts := nat.PortSet{}
@@ -79,6 +79,7 @@ func CreateContainer(ctx context.Context, name string, img string, ports []PortM
 		Image:        img,
 		Tty:          false,
 		ExposedPorts: exposedPorts,
+		Env:          envVars,
 	}
 
 	if len(cmd) > 0 {

@@ -124,7 +124,7 @@ func CreateWorkload(c *fiber.Ctx) error {
                         }
                 }
         }
-        // PHP+Apache 和 Nginx 固定监听 80 端口，修正容器端口后再存入数据库
+        // PHP/Static 容器端口固定为 80，修正后再存入数据库供代理使用
         dbPorts := make([]struct {
                 Host      string `json:"host"`
                 Container string `json:"container"`
@@ -182,7 +182,7 @@ func CreateWorkload(c *fiber.Ctx) error {
 		var ports []services.PortMapping
 		for _, p := range req.Ports {
 			containerPort := p.Container
-			// PHP+Apache 和 Nginx 固定监听 80 端口，忽略用户填写的容器端口
+			// PHP+Apache 和 Nginx 固定监听 80 端口
 			if req.RuntimeType == "php" || req.RuntimeType == "static" {
 				containerPort = "80"
 			}
@@ -250,17 +250,11 @@ func CreateWorkload(c *fiber.Ctx) error {
 			containerCmd = []string{"sh", "-c", cmdStr}
 
 		case "php":
-			// PHP+Apache 使用默认命令启动，但如果指定了入口文件，需要修改 DirectoryIndex
-			if req.PhpIndexFile != "" {
-				// 修改 Apache 配置以使用指定的入口文件
-				cmdStr = fmt.Sprintf("sed -i 's/DirectoryIndex index.html/DirectoryIndex %s/' /etc/apache2/mods-enabled/dir.conf && sed -i 's/DirectoryIndex index.php/DirectoryIndex %s/' /etc/apache2/mods-enabled/dir.conf && apache2-foreground", req.PhpIndexFile, req.PhpIndexFile)
-				containerCmd = []string{"sh", "-c", cmdStr}
-			} else {
-				containerCmd = []string{} // 使用镜像默认命令
-			}
+			// PHP+Apache 使用镜像默认命令启动，通过环境变量配置文档根目录
+			containerCmd = []string{}
 
 		case "static":
-			// Nginx不需要额外启动命令
+			// Nginx 使用镜像默认命令启动
 			containerCmd = []string{}
 
 		case "binary":
@@ -286,8 +280,15 @@ func CreateWorkload(c *fiber.Ctx) error {
 			containerCmd = []string{"sh", "-c", req.StartCommand}
 		}
 
+		// Build environment variables
+		var envVars []string
+		if req.RuntimeType == "php" && req.PhpIndexFile != "" {
+			// APACHE_DOCUMENT_ROOT 设置文档根目录（相对于挂载目录）
+			envVars = append(envVars, fmt.Sprintf("APACHE_DOCUMENT_ROOT=/var/www/html/%s", req.PhpIndexFile))
+		}
+
 		// Actual Docker container creation
-		realContainerID, err := services.CreateContainer(ctx, req.ContainerName, imageName, ports, volumes, containerCmd, config.DefaultWorkingDir)
+		realContainerID, err := services.CreateContainer(ctx, req.ContainerName, imageName, ports, volumes, containerCmd, config.DefaultWorkingDir, envVars)
 		if err != nil {
 			appendLog(fmt.Sprintf("[Workload Async Error] Failed to create container for '%s': %v", req.Name, err))
 			return
