@@ -276,9 +276,14 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	// 2. Check Container Port Mappings (Fallback Port-based matching)
 	var containers []models.Container
 	db.DB.Find(&containers)
-	
+
 	for _, c := range containers {
 		if c.DockerID == "" || c.Ports == "" || c.Ports == "[]" {
+			continue
+		}
+		// Skip containers that are not running
+		info, err := DockerClient.ContainerInspect(context.Background(), c.DockerID)
+		if err != nil || !info.State.Running {
 			continue
 		}
 		var ports []WorkloadPort
@@ -288,21 +293,25 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 				// Match! Route to this container's IP
 				ip := getContainerIP(c.DockerID)
 				if ip != "" {
-					targetURL, _ := url.Parse(fmt.Sprintf("http://%s:%s", ip, p.Container))
+					containerPort := p.Container
+					if containerPort == "" {
+						containerPort = "80"
+					}
+					targetURL, _ := url.Parse(fmt.Sprintf("http://%s:%s", ip, containerPort))
 					proxy := httputil.NewSingleHostReverseProxy(targetURL)
-					
+
 					proxy.Director = func(req *http.Request) {
 						req.URL.Scheme = targetURL.Scheme
 						req.URL.Host = targetURL.Host
 						req.Header.Set("X-Forwarded-Host", req.Host)
 					}
-					
+
 					proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {
 						rw.Header().Set("Content-Type", "text/html; charset=utf-8")
 						rw.WriteHeader(http.StatusBadGateway)
 						rw.Write([]byte(getNiceErrorPage("502", req.Host)))
 					}
-					
+
 					proxy.ServeHTTP(w, r)
 					return
 				}

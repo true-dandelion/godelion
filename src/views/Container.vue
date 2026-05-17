@@ -42,10 +42,10 @@
           </template>
         </el-table-column>
         
-        <el-table-column prop="runtimeType" label="类型" width="120">
+        <el-table-column prop="runtime_type" label="类型" width="120">
           <template #default="{ row }">
-            <el-tag size="small" :type="getRuntimeTypeTagType(row.runtimeType)" class="!font-medium">
-              {{ getRuntimeTypeName(row.runtimeType) }}
+            <el-tag size="small" :type="getRuntimeTypeTagType(row.runtime_type)" class="!font-medium">
+              {{ getRuntimeTypeName(row.runtime_type) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -445,7 +445,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getWorkloads, createWorkload, startWorkload, stopWorkload, deleteWorkload, updateWorkload, getFiles, readFile, getWorkloadLogs } from '../api'
 import {
@@ -465,6 +465,7 @@ const loading = ref(false)
 const searchQuery = ref('')
 const statusFilter = ref('')
 const deployDialogVisible = ref(false)
+let statusPollingTimer: ReturnType<typeof setInterval> | null = null
 
 const logDialogVisible = ref(false)
 const containerLogs = ref('')
@@ -899,6 +900,8 @@ const handleDeploy = async () => {
 			deployDialogVisible.value = false
 			resetDeployForm()
 			fetchContainers()
+			// 启动轮询，等待异步创建完成
+			startStatusPolling()
 		} else {
 			ElMessage.error(res.message || '创建失败')
 		}
@@ -960,8 +963,32 @@ const getRuntimeTypeTagType = (type: string) => {
 	return types[type] || ''
 }
 
+// 自动轮询容器状态，直到没有 creating 状态的容器
+const startStatusPolling = () => {
+  if (statusPollingTimer) return // 已经在轮询中
+  statusPollingTimer = setInterval(async () => {
+    await fetchContainers()
+    // 检查是否还有 creating 状态的容器
+    const hasCreating = containers.value.some((c: any) => c.status === 'creating')
+    if (!hasCreating) {
+      stopStatusPolling()
+    }
+  }, 3000) // 每3秒刷新一次
+}
+
+const stopStatusPolling = () => {
+  if (statusPollingTimer) {
+    clearInterval(statusPollingTimer)
+    statusPollingTimer = null
+  }
+}
+
 onMounted(() => {
   fetchContainers()
+})
+
+onUnmounted(() => {
+  stopStatusPolling()
 })
 </script>
 
