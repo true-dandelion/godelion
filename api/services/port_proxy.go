@@ -50,7 +50,10 @@ func LoadAndStartAllProxies() {
 
 // StartProxiesForContainer parses the container ports and starts listeners
 func StartProxiesForContainer(c models.Container) {
+	log.Printf("[Proxy Debug] StartProxiesForContainer called for %s (ID: %s), Ports: %s", c.Name, c.ID, c.Ports)
+
 	if c.Ports == "" || c.Ports == "[]" {
+		log.Printf("[Proxy Debug] Container %s has no ports, skipping", c.Name)
 		return
 	}
 
@@ -60,9 +63,15 @@ func StartProxiesForContainer(c models.Container) {
 		return
 	}
 
+	log.Printf("[Proxy Debug] Container %s has %d port mappings", c.Name, len(ports))
+
 	for _, p := range ports {
+		log.Printf("[Proxy Debug] Checking port mapping: host=%s, container=%s", p.Host, p.Container)
 		if p.Host != "" && p.Container != "" {
+			log.Printf("[Proxy Debug] Starting listener for host port %s", p.Host)
 			EnsureListenerRunning(p.Host)
+		} else {
+			log.Printf("[Proxy Debug] Skipping port mapping (host=%s, container=%s)", p.Host, p.Container)
 		}
 	}
 }
@@ -356,8 +365,11 @@ func EnsureListenerRunning(port string) {
 	defer workloadProxyMutex.Unlock()
 
 	if _, exists := proxyServers[port]; exists {
+		log.Printf("[Dynamic Listener] Port %s already running, skipping", port)
 		return // Already running
 	}
+
+	log.Printf("[Dynamic Listener] Creating new listener for port %s", port)
 
 	handler := &dynamicProxyHandler{Port: port}
 	server := &http.Server{
@@ -381,6 +393,8 @@ func EnsureListenerRunning(port string) {
 
 		if err != nil && err != http.ErrServerClosed {
 			log.Printf("[Dynamic Listener Error] Port %s failed: %v", port, err)
+		} else if err == http.ErrServerClosed {
+			log.Printf("[Dynamic Listener] Port %s server closed", port)
 		}
 		
 		// Once it exits (due to error or Close), remove from map
