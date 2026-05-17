@@ -262,32 +262,37 @@ func CreateWorkload(c *fiber.Ctx) error {
 			containerCmd = []string{"sh", "-c", cmdStr}
 
 		case "static":
-			// 获取用户指定的容器端口
-			staticPort := "80"
-			for _, p := range req.Ports {
-				if p.Container != "" {
-					staticPort = p.Container
-					break
-				}
+		// 获取用户指定的容器端口
+		staticPort := "80"
+		for _, p := range req.Ports {
+			if p.Container != "" {
+				staticPort = p.Container
+				break
 			}
-			// 构建启动命令：修改 Nginx 监听端口 + 入口文件
-			var staticCmds []string
-			if staticPort != "80" {
-				staticCmds = append(staticCmds, 
-					fmt.Sprintf("sed -i 's/listen 80/listen %s/' /etc/nginx/conf.d/default.conf", staticPort),
-					fmt.Sprintf("sed -i 's/listen \\[::\\]:80/listen \\[::\\]:%s/' /etc/nginx/conf.d/default.conf", staticPort),
-				)
-			}
-			// StaticIndexFile 用于指定入口文件（如 home.html, index.htm）
-			// 通过修改 Nginx 的 index 指令来实现
-			if req.StaticIndexFile != "" {
-				staticCmds = append(staticCmds, 
-					fmt.Sprintf("sed -i 's|^index .*|index %s;|' /etc/nginx/conf.d/default.conf", req.StaticIndexFile),
-				)
-			}
-			staticCmds = append(staticCmds, "nginx -g 'daemon off;'")
-			cmdStr = strings.Join(staticCmds, " && ")
-			containerCmd = []string{"sh", "-c", cmdStr}
+		}
+		// 构建启动命令：重写 Nginx 配置 + 启动
+		// 使用 cat 创建新配置文件，避免 sed 匹配问题
+		indexFile := "index.html"
+		if req.StaticIndexFile != "" {
+			indexFile = req.StaticIndexFile
+		}
+		cmdStr = fmt.Sprintf(`cat > /etc/nginx/conf.d/default.conf << 'EOF'
+server {
+    listen       %s;
+    listen       [::]:%s;
+    server_name  localhost;
+    location / {
+        root   /usr/share/nginx/html;
+        index  %s;
+    }
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+}
+EOF
+nginx -g 'daemon off;'`, staticPort, staticPort, indexFile)
+		containerCmd = []string{"sh", "-c", cmdStr}
 
 		case "binary":
 			containerCmd = []string{"sh", "-c", req.StartCommand}
