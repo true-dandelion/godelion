@@ -168,7 +168,6 @@
             <el-option label="Go" value="go" />
             <el-option label="PHP" value="php" />
             <el-option label="静态页面 (Nginx)" value="static" />
-            <el-option label="二进制程序" value="binary" />
           </el-select>
         </el-form-item>
 
@@ -299,16 +298,6 @@
               Nginx 静态文件服务器会自动启动，不需要启动命令。
               项目将被挂载到 /usr/share/nginx/html 目录。
             </div>
-          </el-form-item>
-        </template>
-
-        <!-- 二进制程序特定字段 -->
-        <template v-if="deployForm.runtimeType === 'binary'">
-          <el-form-item label="启动命令" required>
-            <el-input 
-              v-model="deployForm.startCommand" 
-              placeholder="例如: ./myapp --port=8080" 
-            />
           </el-form-item>
         </template>
 
@@ -489,8 +478,7 @@ const runtimeDefaults = {
 	python: { image: 'python:3.12-alpine', containerPort: '5000' },
 	go: { image: 'golang:1.22-alpine', containerPort: '8080' },
 	php: { image: 'php:8.3-apache', containerPort: '80' },
-	static: { image: 'nginx:alpine', containerPort: '80' },
-	binary: { image: 'alpine:latest', containerPort: '8080' }
+	static: { image: 'nginx:alpine', containerPort: '80' }
 }
 
 // 获取默认镜像占位符
@@ -846,11 +834,6 @@ const handleDeploy = async () => {
 		} else if (deployForm.runtimeType === 'c') {
 			payload.start_command = deployForm.startCommand
 			payload.build_command = deployForm.buildCommand
-		} else if (deployForm.runtimeType === 'cpp') {
-			payload.start_command = deployForm.startCommand
-			payload.build_command = deployForm.buildCommand
-		} else if (deployForm.runtimeType === 'binary') {
-			payload.start_command = deployForm.startCommand
 		} else if (deployForm.runtimeType === 'php') {
 			payload.php_index_file = deployForm.phpIndexFile
 		} else if (deployForm.runtimeType === 'static') {
@@ -904,8 +887,7 @@ const getRuntimeTypeName = (type: string) => {
 		python: 'Python',
 		go: 'Go',
 		php: 'PHP',
-		static: '静态页面',
-		binary: '二进制程序'
+		static: '静态页面'
 	}
 	return names[type] || type
 }
@@ -917,8 +899,7 @@ const getRuntimeTypeTagType = (type: string) => {
 		python: 'success',
 		go: 'info',
 		php: 'warning',
-		static: '',
-		binary: 'danger'
+		static: ''
 	}
 	return types[type] || ''
 }
