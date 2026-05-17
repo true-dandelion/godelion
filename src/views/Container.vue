@@ -168,8 +168,6 @@
             <el-option label="Go" value="go" />
             <el-option label="PHP" value="php" />
             <el-option label="静态页面 (Nginx)" value="static" />
-            <el-option label="C" value="c" />
-            <el-option label="C++" value="cpp" />
             <el-option label="二进制程序" value="binary" />
           </el-select>
         </el-form-item>
@@ -268,38 +266,6 @@
             <el-input 
               v-model="deployForm.startCommand" 
               placeholder="例如: ./app (或 go run main.go)" 
-            />
-          </el-form-item>
-        </template>
-
-        <!-- C 特定字段 -->
-        <template v-if="deployForm.runtimeType === 'c'">
-          <el-form-item label="编译命令">
-            <el-input 
-              v-model="deployForm.buildCommand" 
-              placeholder="例如: gcc -o app main.c (可选)" 
-            />
-          </el-form-item>
-          <el-form-item label="启动命令" required>
-            <el-input 
-              v-model="deployForm.startCommand" 
-              placeholder="例如: ./app" 
-            />
-          </el-form-item>
-        </template>
-
-        <!-- C++ 特定字段 -->
-        <template v-if="deployForm.runtimeType === 'cpp'">
-          <el-form-item label="编译命令">
-            <el-input 
-              v-model="deployForm.buildCommand" 
-              placeholder="例如: g++ -o app main.cpp (可选)" 
-            />
-          </el-form-item>
-          <el-form-item label="启动命令" required>
-            <el-input 
-              v-model="deployForm.startCommand" 
-              placeholder="例如: ./app" 
             />
           </el-form-item>
         </template>
@@ -524,8 +490,6 @@ const runtimeDefaults = {
 	go: { image: 'golang:1.22-alpine', containerPort: '8080' },
 	php: { image: 'php:8.3-apache', containerPort: '80' },
 	static: { image: 'nginx:alpine', containerPort: '80' },
-	c: { image: 'gcc:latest', containerPort: '8080' },
-	cpp: { image: 'gcc:latest', containerPort: '8080' },
 	binary: { image: 'alpine:latest', containerPort: '8080' }
 }
 
@@ -941,8 +905,6 @@ const getRuntimeTypeName = (type: string) => {
 		go: 'Go',
 		php: 'PHP',
 		static: '静态页面',
-		c: 'C',
-		cpp: 'C++',
 		binary: '二进制程序'
 	}
 	return names[type] || type
@@ -956,8 +918,6 @@ const getRuntimeTypeTagType = (type: string) => {
 		go: 'info',
 		php: 'warning',
 		static: '',
-		c: 'danger',
-		cpp: 'danger',
 		binary: 'danger'
 	}
 	return types[type] || ''
