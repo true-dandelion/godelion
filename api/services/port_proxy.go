@@ -275,7 +275,16 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	// 2. Check Container Port Mappings (Fallback Port-based matching)
 	var containers []models.Container
-	db.DB.Find(&containers)
+	result := db.DB.Find(&containers)
+	if result.Error != nil {
+		log.Printf("[Proxy Error] Failed to query containers: %v", result.Error)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(getNiceErrorPage("500", r.Host)))
+		return
+	}
+
+	log.Printf("[Proxy Debug] Fallback matching for port %s, found %d containers", h.Port, len(containers))
 
 	for _, c := range containers {
 		if c.DockerID == "" || c.Ports == "" || c.Ports == "[]" {
@@ -283,21 +292,36 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		}
 		// Skip containers that are not running
 		info, err := DockerClient.ContainerInspect(context.Background(), c.DockerID)
-		if err != nil || !info.State.Running {
+		if err != nil {
+			log.Printf("[Proxy Debug] Container %s inspect error: %v", c.Name, err)
 			continue
 		}
+		if !info.State.Running {
+			log.Printf("[Proxy Debug] Container %s is not running", c.Name)
+			continue
+		}
+
 		var ports []WorkloadPort
-		json.Unmarshal([]byte(c.Ports), &ports)
+		if err := json.Unmarshal([]byte(c.Ports), &ports); err != nil {
+			log.Printf("[Proxy Debug] Container %s ports parse error: %v", c.Name, err)
+			continue
+		}
+
+		log.Printf("[Proxy Debug] Container %s (ID: %s) has %d port mappings", c.Name, c.DockerID[:12], len(ports))
+
 		for _, p := range ports {
+			log.Printf("[Proxy Debug] Checking port mapping: host=%s, container=%s against request port=%s", p.Host, p.Container, h.Port)
 			if p.Host == h.Port {
 				// Match! Route to this container's IP
 				ip := getContainerIP(c.DockerID)
+				log.Printf("[Proxy Debug] Found matching container %s, IP: %s", c.Name, ip)
 				if ip != "" {
 					containerPort := p.Container
 					if containerPort == "" {
 						containerPort = "80"
 					}
 					targetURL, _ := url.Parse(fmt.Sprintf("http://%s:%s", ip, containerPort))
+					log.Printf("[Proxy] Routing request to %s (container: %s, port: %s)", targetURL.String(), c.Name, containerPort)
 					proxy := httputil.NewSingleHostReverseProxy(targetURL)
 
 					proxy.Director = func(req *http.Request) {
@@ -307,6 +331,7 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 					}
 
 					proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {
+						log.Printf("[Proxy Error] Failed to proxy to %s: %v", targetURL.String(), err)
 						rw.Header().Set("Content-Type", "text/html; charset=utf-8")
 						rw.WriteHeader(http.StatusBadGateway)
 						rw.Write([]byte(getNiceErrorPage("502", req.Host)))
@@ -319,9 +344,10 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
+	log.Printf("[Proxy Debug] No matching container found for port %s", h.Port)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-        w.WriteHeader(http.StatusNotFound)
-        w.Write([]byte(getNiceErrorPage("404", r.Host)))
+	w.WriteHeader(http.StatusNotFound)
+	w.Write([]byte(getNiceErrorPage("404", r.Host)))
 }
 
 // EnsureListenerRunning starts a shared HTTP multiplexer on the specified port if it doesn't exist
