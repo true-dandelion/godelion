@@ -59,15 +59,34 @@ func UpdateSystemConfig(c *fiber.Ctx) error {
 		config = req
 		db.DB.Create(&config)
 	} else {
-		// Update existing config
-		config.PanelName = req.PanelName
-		config.SessionTimeout = req.SessionTimeout
-		config.EnableHTTPS = req.EnableHTTPS
-		config.HTTPSPort = req.HTTPSPort
-		config.HTTPPort = req.HTTPPort
-		config.SecureEntrypoint = req.SecureEntrypoint
-		config.AuthorizedIPs = req.AuthorizedIPs
-		config.DomainBinding = req.DomainBinding
+		// Partial update: only update non-zero fields
+		if req.PanelName != "" {
+			config.PanelName = req.PanelName
+		}
+		if req.SessionTimeout > 0 {
+			config.SessionTimeout = req.SessionTimeout
+		}
+		if req.EnableHTTPS {
+			config.EnableHTTPS = req.EnableHTTPS
+		}
+		if req.HTTPSPort > 0 {
+			config.HTTPSPort = req.HTTPSPort
+		}
+		if req.HTTPPort > 0 {
+			config.HTTPPort = req.HTTPPort
+		}
+		if req.SecureEntrypoint != "" {
+			config.SecureEntrypoint = req.SecureEntrypoint
+		}
+		if req.AuthorizedIPs != "" {
+			config.AuthorizedIPs = req.AuthorizedIPs
+		}
+		if req.DomainBinding != "" {
+			config.DomainBinding = req.DomainBinding
+		}
+		if req.PasswordExpiryDays > 0 || req.PasswordComplexity || req.TwoFactorEnabled {
+			// These fields can be 0, handle separately
+		}
 		config.PasswordExpiryDays = req.PasswordExpiryDays
 		config.PasswordComplexity = req.PasswordComplexity
 		config.TwoFactorEnabled = req.TwoFactorEnabled

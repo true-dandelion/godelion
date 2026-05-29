@@ -193,7 +193,7 @@
                   <p class="text-white font-medium">密码复杂度验证</p>
                   <p class="text-sm text-zinc-500">密码必须包含字母、数字、特殊字符至少两项</p>
                 </div>
-                <el-switch v-model="configForm.password_complexity" size="large" />
+                <el-switch v-model="configForm.password_complexity" size="large" @change="handlePasswordComplexityChange" />
               </div>
               <div>
                 <div class="flex items-center gap-2 mb-3">
@@ -207,6 +207,11 @@
                   <span class="text-white font-mono w-16 text-right">{{ configForm.password_expiry_days }} 天</span>
                 </div>
                 <p class="text-xs text-zinc-600 mt-1">0 表示永不过期</p>
+              </div>
+              <div class="pt-2 flex justify-end">
+                <el-button type="primary" :loading="configSaving" @click="handleConfigSave" size="large" class="!bg-white !text-black !border-none hover:!bg-zinc-200 px-6">
+                  保存密码策略
+                </el-button>
               </div>
             </div>
           </div>
@@ -241,12 +246,6 @@
 
             </div>
           </div>
-        </div>
-
-        <div class="flex justify-end">
-          <el-button type="primary" :loading="configSaving" @click="handleConfigSave" size="large" class="!bg-white !text-black !border-none hover:!bg-zinc-200 px-8">
-            保存安全设置
-          </el-button>
         </div>
       </div>
     </div>
@@ -493,7 +492,6 @@ const handleConfigSave = async () => {
     const res: any = await updateSystemConfig(configForm)
     if (res.code === 200) {
       ElMessage.success('设置已保存')
-      // Re-fetch config to ensure frontend state matches backend
       fetchSystemConfig()
       fetch2FAStatus()
     } else {
@@ -503,6 +501,21 @@ const handleConfigSave = async () => {
     ElMessage.error('保存异常')
   } finally {
     configSaving.value = false
+  }
+}
+
+const handlePasswordComplexityChange = async (val: boolean) => {
+  try {
+    const res: any = await updateSystemConfig({ password_complexity: val })
+    if (res.code === 200) {
+      ElMessage.success(val ? '密码复杂度验证已开启' : '密码复杂度验证已关闭')
+    } else {
+      ElMessage.error(res.message || '操作失败')
+      fetchSystemConfig()
+    }
+  } catch {
+    ElMessage.error('操作异常')
+    fetchSystemConfig()
   }
 }
 
