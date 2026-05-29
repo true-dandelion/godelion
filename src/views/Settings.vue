@@ -52,7 +52,7 @@
             </div>
             <div class="bg-zinc-800/30 rounded-xl p-5 border border-zinc-800">
               <h4 class="text-sm font-medium text-zinc-300 mb-3 flex items-center gap-2">
-                <el-icon :size="14" class="text-amber-500"><Warning /></el-icon>
+                <el-icon :size="14" class="text-amber-500"><WarningFilled /></el-icon>
                 安全提示
               </h4>
               <ul class="space-y-2 text-sm text-zinc-500">
@@ -124,7 +124,7 @@
         <!-- 访问控制 -->
         <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
           <h3 class="text-lg font-semibold text-white mb-6 flex items-center gap-2">
-            <el-icon :size="18" class="text-green-400"><Shield /></el-icon>
+            <el-icon :size="18" class="text-green-400"><Unlock /></el-icon>
             访问控制
           </h3>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -324,10 +324,10 @@ import {
   Plus,
   Delete,
   QuestionFilled,
-  Shield,
+  Unlock,
   CircleCheck,
   InfoFilled,
-  Warning
+  WarningFilled
 } from '@element-plus/icons-vue'
 import {
   getProfile,
