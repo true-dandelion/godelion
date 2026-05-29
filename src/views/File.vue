@@ -8,7 +8,7 @@
         </el-button>
         <el-divider direction="vertical" class="!border-zinc-700" />
         <el-breadcrumb separator="/" class="!text-sm flex items-center">
-          <el-breadcrumb-item class="cursor-pointer font-mono" @click="navigatePath('/')">/godelion/user</el-breadcrumb-item>
+          <el-breadcrumb-item class="cursor-pointer font-mono" @click="navigatePath('/')">/</el-breadcrumb-item>
           <el-breadcrumb-item v-for="(p, index) in pathSegments" :key="index" class="font-mono text-zinc-300">
             <span class="cursor-pointer hover:text-white transition-colors" @click="navigatePathSegment(index)">{{ p }}</span>
           </el-breadcrumb-item>
