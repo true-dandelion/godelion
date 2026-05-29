@@ -508,6 +508,22 @@ const handleUserSave = async () => {
     return
   }
 
+  // Frontend password complexity check (if enabled)
+  if (configForm.password_complexity) {
+    if (userForm.new_password.length < 8) {
+      ElMessage.warning('密码长度至少为 8 位')
+      return
+    }
+    const hasLetter = /[a-zA-Z]/.test(userForm.new_password)
+    const hasDigit = /[0-9]/.test(userForm.new_password)
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(userForm.new_password)
+    const typeCount = [hasLetter, hasDigit, hasSpecial].filter(Boolean).length
+    if (typeCount < 2) {
+      ElMessage.warning('密码必须包含字母、数字、特殊字符至少两项')
+      return
+    }
+  }
+
   userSaving.value = true
   try {
     if (userForm.new_username !== userStore.user?.username) {
