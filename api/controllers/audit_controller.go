@@ -1,6 +1,7 @@
 package controllers
 
 import (
+        "fmt"
         "time"
 
         "godelion/db"
@@ -13,7 +14,7 @@ import (
 func LogAction(c *fiber.Ctx, action, resource, details string) {
         userID := ""
         if val := c.Locals("user_id"); val != nil {
-                userID = val.(string)
+                userID = fmt.Sprintf("%v", val)
         }
 
         ip := c.IP()
