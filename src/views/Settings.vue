@@ -1,12 +1,12 @@
 <template>
-  <div class="h-full overflow-auto">
+  <div class="min-h-full overflow-auto">
     <!-- 页面标题 -->
     <div class="px-8 py-6 border-b border-zinc-800">
       <h1 class="text-2xl font-bold text-white">设置</h1>
       <p class="text-zinc-500 text-sm mt-1">管理您的账户和系统配置</p>
     </div>
 
-    <div class="p-8 max-w-6xl">
+    <div class="p-8 max-w-6xl pb-16">
       <!-- 标签页导航 -->
       <div class="flex gap-1 mb-8 bg-zinc-900/50 p-1 rounded-xl w-fit">
         <button
