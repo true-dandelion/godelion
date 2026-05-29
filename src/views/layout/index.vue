@@ -5,7 +5,7 @@
         <el-icon v-if="isCollapse" :size="24" class="text-white"><Platform /></el-icon>
         <div v-else class="flex items-center gap-3">
           <el-icon :size="24" class="text-white"><Platform /></el-icon>
-          <span class="text-lg font-bold tracking-tight text-white">Godelion</span>
+          <span class="text-lg font-bold tracking-tight text-white">{{ panelName }}</span>
         </div>
       </div>
       
@@ -106,10 +106,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../../store/user'
 import { ElMessageBox, ElMessage } from 'element-plus'
+import { getSystemConfig } from '../../api'
 import {
   Platform,
   Odometer,
@@ -130,9 +131,24 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const isCollapse = ref(false)
+const panelName = ref('Godelion')
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => route.meta.title as string || 'Dashboard')
+
+const fetchPanelName = async () => {
+  try {
+    const res: any = await getSystemConfig()
+    if (res.code === 200 && res.data?.panel_name) {
+      panelName.value = res.data.panel_name
+      document.title = res.data.panel_name
+    }
+  } catch {}
+}
+
+onMounted(() => {
+  fetchPanelName()
+})
 
 const handleCommand = (command: string) => {
   if (command === 'logout') {
