@@ -73,3 +73,33 @@ type AuditLog struct {
 	Details   string    `json:"details"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+// SystemConfig stores panel-wide configuration settings
+type SystemConfig struct {
+	ID                    uint   `gorm:"primaryKey" json:"id"`
+	PanelName             string `gorm:"default:'Godelion'" json:"panel_name"`
+	SessionTimeout        int    `gorm:"default:86400" json:"session_timeout"`           // seconds, default 24 hours
+	EnableHTTPS           bool   `gorm:"default:false" json:"enable_https"`
+	HTTPSPort             int    `gorm:"default:443" json:"https_port"`
+	HTTPPort              int    `gorm:"default:8080" json:"http_port"`
+	SecureEntrypoint      string `json:"secure_entrypoint"`                              // e.g. "/admin"
+	AuthorizedIPs         string `gorm:"type:text" json:"authorized_ips"`                // comma-separated IPs
+	DomainBinding         string `json:"domain_binding"`                                 // e.g. "example.com"
+	PasswordExpiryDays    int    `gorm:"default:0" json:"password_expiry_days"`          // 0 means no expiry
+	PasswordComplexity    bool   `gorm:"default:false" json:"password_complexity"`       // require 8-30 chars, letters+numbers+special
+	TwoFactorEnabled      bool   `gorm:"default:false" json:"two_factor_enabled"`
+	TwoFactorSecret       string `json:"two_factor_secret"`                              // TOTP secret
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
+}
+
+// Passkey stores user passkey credentials for fast login
+type Passkey struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    string    `gorm:"not null;index" json:"user_id"`
+	Name      string    `json:"name"`           // user-defined name for this passkey
+	CredentialID string `gorm:"type:text" json:"credential_id"`
+	PublicKey  string    `gorm:"type:text" json:"public_key"`
+	Counter    uint32    `json:"counter"`
+	CreatedAt  time.Time `json:"created_at"`
+}

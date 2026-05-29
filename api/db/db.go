@@ -34,7 +34,7 @@ func InitDB() {
                 DB.Migrator().DropIndex(&models.GatewayRule{}, "idx_gateway_rules_domain")
         }
 
-        err = DB.AutoMigrate(&models.User{}, &models.Container{}, &models.GatewayRule{}, &models.AuditLog{}, &models.SSLCertificate{})
+        err = DB.AutoMigrate(&models.User{}, &models.Container{}, &models.GatewayRule{}, &models.AuditLog{}, &models.SSLCertificate{}, &models.SystemConfig{}, &models.Passkey{})
 	if err != nil {
 		log.Fatalf("Failed to auto migrate database: %v", err)
 	}

@@ -74,3 +74,16 @@ export const updateDockerConfig = (config: string) => request.post<any, ApiRespo
 
 export const getMetrics = () => request.get<any, ApiResponse>('/metrics')
 export const getAuditLogs = () => request.get<any, ApiResponse>('/audit')
+
+// System Config
+export const getSystemConfig = () => request.get<any, ApiResponse>('/config')
+export const updateSystemConfig = (data: any) => request.put<any, ApiResponse>('/config', data)
+
+// User Settings
+export const changeUsername = (data: { new_username: string }) => request.post<any, ApiResponse>('/user/change-username', data)
+export const changePassword = (data: { current_password: string, new_password: string }) => request.post<any, ApiResponse>('/user/change-password', data)
+
+// Passkeys
+export const getPasskeys = () => request.get<any, ApiResponse>('/user/passkeys')
+export const createPasskey = (data: any) => request.post<any, ApiResponse>('/user/passkeys', data)
+export const deletePasskey = (id: number) => request.delete<any, ApiResponse>(`/user/passkeys/${id}`)

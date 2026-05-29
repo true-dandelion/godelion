@@ -48,6 +48,16 @@ func main() {
         user := protected.Group("/user")
         user.Get("/profile", controllers.GetProfile)
         user.Put("/profile", controllers.UpdateProfile)
+        user.Post("/change-username", controllers.ChangeUsername)
+        user.Post("/change-password", controllers.ChangePassword)
+        user.Get("/passkeys", controllers.GetPasskeys)
+        user.Post("/passkeys", controllers.CreatePasskey)
+        user.Delete("/passkeys/:id", controllers.DeletePasskey)
+
+        // System Config
+        config := protected.Group("/config")
+        config.Get("/", controllers.GetSystemConfig)
+        config.Put("/", controllers.UpdateSystemConfig)
 
 	// Workloads
         workloads := protected.Group("/workloads")
