@@ -12,7 +12,7 @@
         <button
           v-for="tab in tabs"
           :key="tab.key"
-          @click="activeTab = tab.key"
+          @click="switchTab(tab.key)"
           class="px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2"
           :class="activeTab === tab.key ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
         >
@@ -407,18 +407,36 @@ import {
   verify2FA,
   disable2FA
 } from '../api'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../store/user'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 
 const activeTab = ref('user')
 const tabs = [
-  { key: 'user', label: '用户设置', icon: 'User' },
-  { key: 'panel', label: '面板设置', icon: 'Monitor' },
-  { key: 'security', label: '安全设置', icon: 'Lock' }
+  { key: 'user', label: '用户设置', icon: 'User', path: '/settings' },
+  { key: 'panel', label: '面板设置', icon: 'Monitor', path: '/settings/panel' },
+  { key: 'security', label: '安全设置', icon: 'Lock', path: '/settings/security' }
 ]
+
+// Sync tab with route
+const switchTab = (key: string) => {
+  activeTab.value = key
+  const tab = tabs.find(t => t.key === key)
+  if (tab && route.path !== tab.path) {
+    router.replace(tab.path)
+  }
+}
+
+// Initialize tab from route
+const initTabFromRoute = () => {
+  const path = route.path
+  if (path === '/settings/panel') activeTab.value = 'panel'
+  else if (path === '/settings/security') activeTab.value = 'security'
+  else activeTab.value = 'user'
+}
 
 // User form
 const userLoading = ref(false)
@@ -745,6 +763,7 @@ const handleDisable2FA = async () => {
 }
 
 onMounted(() => {
+  initTabFromRoute()
   fetchUserProfile()
   fetchSystemConfig()
   fetchPasskeys()
