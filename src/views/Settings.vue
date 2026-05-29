@@ -270,7 +270,7 @@
     </div>
 
     <!-- 2FA 开启对话框 -->
-    <el-dialog v-model="twoFADialogVisible" title="开启两步验证" width="460px" custom-class="dark-dialog" :destroy-on-close="true">
+    <el-dialog v-model="twoFADialogVisible" title="开启两步验证" width="460px" custom-class="dark-dialog" :destroy-on-close="true" :close-on-click-modal="false">
       <div v-if="!twoFAQRCode" class="text-center py-4">
         <el-button type="primary" :loading="twoFALoading" @click="handleGenerate2FA" class="!bg-cyan-500 !text-white !border-none hover:!bg-cyan-600">
           生成二维码
@@ -282,7 +282,12 @@
           <img :src="twoFAQRCode" alt="2FA QR Code" class="mx-auto rounded-xl border border-zinc-700" style="width: 200px; height: 200px;" />
         </div>
         <div class="bg-zinc-800/50 rounded-xl p-4 mb-4">
-          <p class="text-sm text-zinc-400 mb-1">手动输入密钥</p>
+          <div class="flex items-center justify-between mb-1">
+            <p class="text-sm text-zinc-400">手动输入密钥</p>
+            <el-button link size="small" @click="copySecret" class="!text-zinc-400 hover:!text-white">
+              <el-icon class="mr-1"><CopyDocument /></el-icon>复制
+            </el-button>
+          </div>
           <code class="text-white text-sm font-mono break-all">{{ twoFASecret }}</code>
         </div>
         <div>
@@ -299,7 +304,7 @@
     </el-dialog>
 
     <!-- 2FA 关闭对话框 -->
-    <el-dialog v-model="twoFADisableDialogVisible" title="关闭两步验证" width="400px" custom-class="dark-dialog" :destroy-on-close="true">
+    <el-dialog v-model="twoFADisableDialogVisible" title="关闭两步验证" width="400px" custom-class="dark-dialog" :destroy-on-close="true" :close-on-click-modal="false">
       <div class="text-center py-4">
         <div class="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
           <el-icon :size="28" class="text-red-400"><WarningFilled /></el-icon>
@@ -391,7 +396,8 @@ import {
   Unlock,
   CircleCheck,
   InfoFilled,
-  WarningFilled
+  WarningFilled,
+  CopyDocument
 } from '@element-plus/icons-vue'
 import {
   getProfile,
@@ -694,6 +700,16 @@ const open2FADialog = () => {
   twoFAQRCode.value = ''
   twoFASecret.value = ''
   twoFAVerifyCode.value = ''
+  // Auto generate QR code
+  handleGenerate2FA()
+}
+
+const copySecret = () => {
+  navigator.clipboard.writeText(twoFASecret.value).then(() => {
+    ElMessage.success('密钥已复制')
+  }).catch(() => {
+    ElMessage.error('复制失败')
+  })
 }
 
 const open2FADisableDialog = () => {
