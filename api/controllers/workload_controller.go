@@ -46,7 +46,7 @@ func CreateWorkload(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
 	}
 
-	userID := c.Locals("user_id").(string)
+	userID := fmt.Sprintf("%v", c.Locals("user_id"))
 
 	// 运行时类型配置
 	runtimeConfig := map[string]struct {
@@ -347,7 +347,7 @@ nginx -g 'daemon off;'`, staticPort, staticPort, indexFile)
 
 func ListWorkloads(c *fiber.Ctx) error {
 	var workloads []models.Container
-	userID := c.Locals("user_id").(string)
+	userID := fmt.Sprintf("%v", c.Locals("user_id"))
 	role := c.Locals("role").(string)
 
 	query := db.DB

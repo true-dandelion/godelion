@@ -48,7 +48,6 @@ func seedAdmin() {
 	if count == 0 {
 		hash, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
 		admin := models.User{
-			ID:           "u_admin",
 			Username:     "admin",
 			PasswordHash: string(hash),
 			Role:         "admin",

@@ -192,7 +192,7 @@ func ChangePassword(c *fiber.Ctx) error {
 
 // GetPasskeys returns user's passkeys
 func GetPasskeys(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID := fmt.Sprintf("%v", c.Locals("user_id"))
 
 	var passkeys []models.Passkey
 	db.DB.Where("user_id = ?", userID).Find(&passkeys)
@@ -206,7 +206,7 @@ func GetPasskeys(c *fiber.Ctx) error {
 
 // CreatePasskey creates a new passkey for the user
 func CreatePasskey(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID := fmt.Sprintf("%v", c.Locals("user_id"))
 
 	type Req struct {
 		Name        string `json:"name"`
@@ -246,7 +246,7 @@ func CreatePasskey(c *fiber.Ctx) error {
 
 // DeletePasskey deletes a passkey
 func DeletePasskey(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID := fmt.Sprintf("%v", c.Locals("user_id"))
 	passkeyID := c.Params("id")
 
 	var passkey models.Passkey

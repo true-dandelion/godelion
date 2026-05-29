@@ -28,7 +28,7 @@ func validatePath(userID, requestedPath string) (string, error) {
 }
 
 func UploadFile(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID := fmt.Sprintf("%v", c.Locals("user_id"))
 	path := c.Query("path", "/")
 
 	file, err := c.FormFile("file")
@@ -54,7 +54,7 @@ func UploadFile(c *fiber.Ctx) error {
 }
 
 func ListFiles(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID := fmt.Sprintf("%v", c.Locals("user_id"))
 	path := c.Query("path", "/")
 
 	dirPath, err := validatePath(userID, path)
@@ -94,7 +94,7 @@ func ListFiles(c *fiber.Ctx) error {
 }
 
 func DeleteFile(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID := fmt.Sprintf("%v", c.Locals("user_id"))
 	path := c.Query("path")
 
 	if path == "" || path == "/" {
@@ -116,7 +116,7 @@ func DeleteFile(c *fiber.Ctx) error {
 }
 
 func DownloadFile(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID := fmt.Sprintf("%v", c.Locals("user_id"))
 	path := c.Query("path")
 
 	targetPath, err := validatePath(userID, path)
@@ -128,7 +128,7 @@ func DownloadFile(c *fiber.Ctx) error {
 }
 
 func ReadFileContent(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID := fmt.Sprintf("%v", c.Locals("user_id"))
 	path := c.Query("path")
 
 	targetPath, err := validatePath(userID, path)
@@ -148,7 +148,7 @@ func ReadFileContent(c *fiber.Ctx) error {
 }
 
 func CreateFolder(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID := fmt.Sprintf("%v", c.Locals("user_id"))
 	path := c.Query("path", "/")
 	
 	type Req struct {
@@ -178,7 +178,7 @@ func CreateFolder(c *fiber.Ctx) error {
 }
 
 func MoveFile(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID := fmt.Sprintf("%v", c.Locals("user_id"))
 
 	type Req struct {
 		SourcePath string `json:"source_path"`
@@ -203,7 +203,7 @@ func MoveFile(c *fiber.Ctx) error {
 }
 
 func ExtractArchive(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID := fmt.Sprintf("%v", c.Locals("user_id"))
 
 	type Req struct {
 		Path string `json:"path"`

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"time"
 
 	"godelion/db"
@@ -60,9 +61,10 @@ func Login(c *fiber.Ctx) error {
 }
 
 func GetProfile(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID := c.Locals("user_id")
+	userIDStr := fmt.Sprintf("%v", userID)
 	var user models.User
-	if err := db.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+	if err := db.DB.Where("id = ?", userIDStr).First(&user).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
 	}
 
@@ -78,9 +80,10 @@ func GetProfile(c *fiber.Ctx) error {
 }
 
 func UpdateProfile(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID := c.Locals("user_id")
+	userIDStr := fmt.Sprintf("%v", userID)
 	var user models.User
-	if err := db.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+	if err := db.DB.Where("id = ?", userIDStr).First(&user).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
 	}
 
@@ -97,7 +100,7 @@ func UpdateProfile(c *fiber.Ctx) error {
 	if req.Username != "" {
 		// Check if username already exists for another user
 		var existing models.User
-		if err := db.DB.Where("username = ? AND id != ?", req.Username, userID).First(&existing).Error; err == nil {
+		if err := db.DB.Where("username = ? AND id != ?", req.Username, userIDStr).First(&existing).Error; err == nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Username already exists"})
 		}
 		user.Username = req.Username
