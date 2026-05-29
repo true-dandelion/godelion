@@ -1,13 +1,18 @@
 package controllers
 
 import (
+	"encoding/base64"
+	"fmt"
+	"image/png"
 	"log"
 	"regexp"
+	"bytes"
 
 	"godelion/db"
 	"godelion/models"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -79,7 +84,11 @@ func UpdateSystemConfig(c *fiber.Ctx) error {
 
 // ChangeUsername changes the current user's username
 func ChangeUsername(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID := c.Locals("user_id")
+	userIDStr, ok := userID.(string)
+	if !ok {
+		userIDStr = fmt.Sprintf("%v", userID)
+	}
 
 	type Req struct {
 		NewUsername string `json:"new_username"`
@@ -95,12 +104,12 @@ func ChangeUsername(c *fiber.Ctx) error {
 
 	// Check if username already exists
 	var existingUser models.User
-	if db.DB.Where("username = ? AND id != ?", req.NewUsername, userID).First(&existingUser).Error == nil {
+	if db.DB.Where("username = ? AND id != ?", req.NewUsername, userIDStr).First(&existingUser).Error == nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Username already exists"})
 	}
 
 	var user models.User
-	if db.DB.First(&user, "id = ?", userID).Error != nil {
+	if db.DB.First(&user, "id = ?", userIDStr).Error != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
 	}
 
@@ -117,7 +126,12 @@ func ChangeUsername(c *fiber.Ctx) error {
 
 // ChangePassword changes the current user's password
 func ChangePassword(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID := c.Locals("user_id")
+	userIDStr, ok := userID.(string)
+	if !ok {
+		// JWT may store sub as float64
+		userIDStr = fmt.Sprintf("%v", userID)
+	}
 
 	type Req struct {
 		CurrentPassword string `json:"current_password"`
@@ -129,12 +143,13 @@ func ChangePassword(c *fiber.Ctx) error {
 	}
 
 	var user models.User
-	if db.DB.First(&user, "id = ?", userID).Error != nil {
+	if db.DB.First(&user, "id = ?", userIDStr).Error != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
 	}
 
 	// Verify current password
 	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.CurrentPassword)) != nil {
+		log.Printf("Password mismatch for user %s: hash=%s input=%s", userIDStr, user.PasswordHash, req.CurrentPassword)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Current password is incorrect"})
 	}
 
@@ -246,5 +261,138 @@ func DeletePasskey(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"code":    200,
 		"message": "Passkey deleted successfully",
+	})
+}
+
+// Get2FAStatus returns current 2FA status
+func Get2FAStatus(c *fiber.Ctx) error {
+	var config models.SystemConfig
+	db.DB.First(&config)
+
+	enabled := config.TwoFactorEnabled && config.TwoFactorSecret != ""
+
+	return c.JSON(fiber.Map{
+		"code": 200,
+		"data": fiber.Map{
+			"enabled": enabled,
+		},
+	})
+}
+
+// Generate2FASecret generates a new TOTP secret and returns QR code
+func Generate2FASecret(c *fiber.Ctx) error {
+	userID := c.Locals("user_id")
+	userIDStr, _ := userID.(string)
+	if userIDStr == "" {
+		userIDStr = fmt.Sprintf("%v", userID)
+	}
+
+	var user models.User
+	db.DB.First(&user, "id = ?", userIDStr)
+
+	var config models.SystemConfig
+	db.DB.First(&config)
+
+	// Generate TOTP key
+	key, err := totp.Generate(totp.GenerateOpts{
+		Issuer:      "Godelion",
+		AccountName: user.Username,
+	})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate 2FA secret"})
+	}
+
+	// Store secret temporarily (not enabled until verified)
+	config.TwoFactorSecret = key.Secret()
+	db.DB.Save(&config)
+
+	// Generate QR code as base64 image
+	var buf bytes.Buffer
+	img, err := key.Image(200, 200)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate QR code"})
+	}
+	png.Encode(&buf, img)
+	qrBase64 := base64.StdEncoding.EncodeToString(buf.Bytes())
+
+	return c.JSON(fiber.Map{
+		"code": 200,
+		"data": fiber.Map{
+			"secret":    key.Secret(),
+			"qr_code":   "data:image/png;base64," + qrBase64,
+			"issuer":    "Godelion",
+			"account":   user.Username,
+		},
+	})
+}
+
+// Verify2FA verifies the user's TOTP code to enable 2FA
+func Verify2FA(c *fiber.Ctx) error {
+	type Req struct {
+		Code string `json:"code"`
+	}
+	var req Req
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	var config models.SystemConfig
+	db.DB.First(&config)
+
+	if config.TwoFactorSecret == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Please generate a 2FA secret first"})
+	}
+
+	valid := totp.Validate(req.Code, config.TwoFactorSecret)
+	if !valid {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid verification code"})
+	}
+
+	// Enable 2FA
+	config.TwoFactorEnabled = true
+	db.DB.Save(&config)
+
+	LogAction(c, "Update", "Security", "Enabled 2FA")
+
+	return c.JSON(fiber.Map{
+		"code":    200,
+		"message": "2FA enabled successfully",
+	})
+}
+
+// Disable2FA disables 2FA
+func Disable2FA(c *fiber.Ctx) error {
+	type Req struct {
+		Code string `json:"code"`
+	}
+	var req Req
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	var config models.SystemConfig
+	db.DB.First(&config)
+
+	if !config.TwoFactorEnabled {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "2FA is not enabled"})
+	}
+
+	// Verify code before disabling
+	if config.TwoFactorSecret != "" {
+		valid := totp.Validate(req.Code, config.TwoFactorSecret)
+		if !valid {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid verification code"})
+		}
+	}
+
+	config.TwoFactorEnabled = false
+	config.TwoFactorSecret = ""
+	db.DB.Save(&config)
+
+	LogAction(c, "Update", "Security", "Disabled 2FA")
+
+	return c.JSON(fiber.Map{
+		"code":    200,
+		"message": "2FA disabled successfully",
 	})
 }

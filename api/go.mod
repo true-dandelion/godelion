@@ -9,6 +9,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/uuid v1.6.0
+	github.com/pquerna/otp v1.4.0
 	github.com/valyala/fasthttp v1.70.0
 	golang.org/x/crypto v0.50.0
 	gorm.io/gorm v1.31.1

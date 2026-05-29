@@ -59,6 +59,13 @@ func main() {
         config.Get("/", controllers.GetSystemConfig)
         config.Put("/", controllers.UpdateSystemConfig)
 
+        // 2FA
+        twofa := protected.Group("/2fa")
+        twofa.Get("/status", controllers.Get2FAStatus)
+        twofa.Post("/generate", controllers.Generate2FASecret)
+        twofa.Post("/verify", controllers.Verify2FA)
+        twofa.Post("/disable", controllers.Disable2FA)
+
 	// Workloads
         workloads := protected.Group("/workloads")
         workloads.Get("/", controllers.ListWorkloads)

@@ -87,3 +87,9 @@ export const changePassword = (data: { current_password: string, new_password: s
 export const getPasskeys = () => request.get<any, ApiResponse>('/user/passkeys')
 export const createPasskey = (data: any) => request.post<any, ApiResponse>('/user/passkeys', data)
 export const deletePasskey = (id: number) => request.delete<any, ApiResponse>(`/user/passkeys/${id}`)
+
+// 2FA
+export const get2FAStatus = () => request.get<any, ApiResponse>('/2fa/status')
+export const generate2FA = () => request.post<any, ApiResponse>('/2fa/generate')
+export const verify2FA = (data: { code: string }) => request.post<any, ApiResponse>('/2fa/verify', data)
+export const disable2FA = (data: { code: string }) => request.post<any, ApiResponse>('/2fa/disable', data)

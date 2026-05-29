@@ -218,13 +218,27 @@
               双重认证
             </h3>
             <div class="space-y-5">
+              <!-- 2FA 状态 -->
               <div class="flex items-center justify-between py-3 border-b border-zinc-800">
                 <div>
                   <p class="text-white font-medium">两步验证 (2FA)</p>
-                  <p class="text-sm text-zinc-500">登录时需要输入动态验证码</p>
+                  <p class="text-sm text-zinc-500">
+                    <span v-if="twoFAEnabled" class="text-green-400">已开启</span>
+                    <span v-else>未开启</span>
+                    — 登录时需要输入动态验证码
+                  </p>
                 </div>
-                <el-switch v-model="configForm.two_factor_enabled" size="large" />
+                <div class="flex items-center gap-3">
+                  <el-button v-if="!twoFAEnabled" @click="open2FADialog" type="primary" class="!bg-cyan-500 !text-white !border-none hover:!bg-cyan-600">
+                    开启
+                  </el-button>
+                  <el-button v-else @click="open2FADisableDialog" class="!bg-red-500/10 !text-red-400 !border-red-500/30 hover:!bg-red-500/20">
+                    关闭
+                  </el-button>
+                </div>
               </div>
+
+              <!-- 通行密钥 -->
               <div>
                 <div class="flex items-center justify-between mb-3">
                   <div class="flex items-center gap-2">
@@ -254,6 +268,56 @@
         </div>
       </div>
     </div>
+
+    <!-- 2FA 开启对话框 -->
+    <el-dialog v-model="twoFADialogVisible" title="开启两步验证" width="460px" custom-class="dark-dialog" :destroy-on-close="true">
+      <div v-if="!twoFAQRCode" class="text-center py-4">
+        <el-button type="primary" :loading="twoFALoading" @click="handleGenerate2FA" class="!bg-cyan-500 !text-white !border-none hover:!bg-cyan-600">
+          生成二维码
+        </el-button>
+      </div>
+      <div v-else>
+        <div class="text-center mb-6">
+          <p class="text-white font-medium mb-4">使用 Google Authenticator 扫描二维码</p>
+          <img :src="twoFAQRCode" alt="2FA QR Code" class="mx-auto rounded-xl border border-zinc-700" style="width: 200px; height: 200px;" />
+        </div>
+        <div class="bg-zinc-800/50 rounded-xl p-4 mb-4">
+          <p class="text-sm text-zinc-400 mb-1">手动输入密钥</p>
+          <code class="text-white text-sm font-mono break-all">{{ twoFASecret }}</code>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-zinc-400 mb-2">输入验证码以确认开启</label>
+          <el-input v-model="twoFAVerifyCode" placeholder="请输入 6 位验证码" maxlength="6" size="large" class="!bg-zinc-800/50" />
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="twoFADialogVisible = false" class="!bg-transparent !text-white !border-zinc-700">取消</el-button>
+        <el-button v-if="twoFAQRCode" type="primary" :loading="twoFAVerifying" @click="handleVerify2FA" class="!bg-cyan-500 !text-white !border-none hover:!bg-cyan-600">
+          确认开启
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 2FA 关闭对话框 -->
+    <el-dialog v-model="twoFADisableDialogVisible" title="关闭两步验证" width="400px" custom-class="dark-dialog" :destroy-on-close="true">
+      <div class="text-center py-4">
+        <div class="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+          <el-icon :size="28" class="text-red-400"><WarningFilled /></el-icon>
+        </div>
+        <p class="text-white font-medium mb-2">确定要关闭两步验证吗？</p>
+        <p class="text-sm text-zinc-500 mb-4">关闭后账户安全性将降低</p>
+        <div>
+          <label class="block text-sm font-medium text-zinc-400 mb-2">输入当前验证码以确认关闭</label>
+          <el-input v-model="twoFADisableCode" placeholder="请输入 6 位验证码" maxlength="6" size="large" class="!bg-zinc-800/50" />
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="twoFADisableDialogVisible = false" class="!bg-transparent !text-white !border-zinc-700">取消</el-button>
+        <el-button type="danger" :loading="twoFADisabling" @click="handleDisable2FA" class="!bg-red-500 !text-white !border-none hover:!bg-red-600">
+          确认关闭
+        </el-button>
+      </template>
+    </el-dialog>
 
     <!-- 通行密钥管理对话框 -->
     <el-dialog v-model="passkeyDialogVisible" title="通行密钥管理" width="520px" custom-class="dark-dialog" :destroy-on-close="true">
@@ -337,7 +401,11 @@ import {
   changePassword,
   getPasskeys,
   createPasskey,
-  deletePasskey
+  deletePasskey,
+  get2FAStatus,
+  generate2FA,
+  verify2FA,
+  disable2FA
 } from '../api'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../store/user'
@@ -562,10 +630,105 @@ const formatDate = (dateStr: string) => {
   return date.toLocaleDateString()
 }
 
+// 2FA
+const twoFAEnabled = ref(false)
+const twoFADialogVisible = ref(false)
+const twoFADisableDialogVisible = ref(false)
+const twoFALoading = ref(false)
+const twoFAVerifying = ref(false)
+const twoFADisabling = ref(false)
+const twoFAQRCode = ref('')
+const twoFASecret = ref('')
+const twoFAVerifyCode = ref('')
+const twoFADisableCode = ref('')
+
+const fetch2FAStatus = async () => {
+  try {
+    const res: any = await get2FAStatus()
+    if (res.code === 200) {
+      twoFAEnabled.value = res.data.enabled
+    }
+  } catch {}
+}
+
+const open2FADialog = () => {
+  twoFADialogVisible.value = true
+  twoFAQRCode.value = ''
+  twoFASecret.value = ''
+  twoFAVerifyCode.value = ''
+}
+
+const open2FADisableDialog = () => {
+  twoFADisableDialogVisible.value = true
+  twoFADisableCode.value = ''
+}
+
+const handleGenerate2FA = async () => {
+  twoFALoading.value = true
+  try {
+    const res: any = await generate2FA()
+    if (res.code === 200) {
+      twoFAQRCode.value = res.data.qr_code
+      twoFASecret.value = res.data.secret
+    } else {
+      ElMessage.error(res.message || '生成失败')
+    }
+  } catch {
+    ElMessage.error('生成异常')
+  } finally {
+    twoFALoading.value = false
+  }
+}
+
+const handleVerify2FA = async () => {
+  if (!twoFAVerifyCode.value || twoFAVerifyCode.value.length !== 6) {
+    ElMessage.warning('请输入 6 位验证码')
+    return
+  }
+  twoFAVerifying.value = true
+  try {
+    const res: any = await verify2FA({ code: twoFAVerifyCode.value })
+    if (res.code === 200) {
+      ElMessage.success('两步验证已开启')
+      twoFADialogVisible.value = false
+      twoFAEnabled.value = true
+    } else {
+      ElMessage.error(res.message || res.error || '验证失败')
+    }
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.error || '验证异常')
+  } finally {
+    twoFAVerifying.value = false
+  }
+}
+
+const handleDisable2FA = async () => {
+  if (!twoFADisableCode.value || twoFADisableCode.value.length !== 6) {
+    ElMessage.warning('请输入 6 位验证码')
+    return
+  }
+  twoFADisabling.value = true
+  try {
+    const res: any = await disable2FA({ code: twoFADisableCode.value })
+    if (res.code === 200) {
+      ElMessage.success('两步验证已关闭')
+      twoFADisableDialogVisible.value = false
+      twoFAEnabled.value = false
+    } else {
+      ElMessage.error(res.message || res.error || '关闭失败')
+    }
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.error || '关闭异常')
+  } finally {
+    twoFADisabling.value = false
+  }
+}
+
 onMounted(() => {
   fetchUserProfile()
   fetchSystemConfig()
   fetchPasskeys()
+  fetch2FAStatus()
 })
 </script>
 
