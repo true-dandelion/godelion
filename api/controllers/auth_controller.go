@@ -33,10 +33,18 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
 	}
 
+	// Get session timeout from system config
+	var config models.SystemConfig
+	db.DB.First(&config)
+	timeout := config.SessionTimeout
+	if timeout <= 0 {
+		timeout = 86400 // default 24 hours
+	}
+
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":  user.ID,
 		"role": user.Role,
-		"exp":  time.Now().Add(time.Hour * 24).Unix(),
+		"exp":  time.Now().Add(time.Duration(timeout) * time.Second).Unix(),
 	})
 
 	tokenString, err := token.SignedString(middleware.JwtSecret)

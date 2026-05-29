@@ -23,6 +23,9 @@ func main() {
 	services.InitProxy()
 	services.LoadAndStartAllProxies()
 
+	// Load access control config into cache
+	middleware.LoadAccessConfig()
+
 	app := fiber.New(fiber.Config{
 		DisableStartupMessage: true,
 		BodyLimit:             100 * 1024 * 1024, // 100MB limit for file uploads
@@ -38,8 +41,11 @@ func main() {
 	// Admin / System API routes
 	api := app.Group("/sys/v1")
 
-	// Auth
+	// Auth (no access control for login)
         api.Post("/auth/login", controllers.Login)
+
+	// Access control middleware (IP whitelist + domain binding)
+	api.Use(middleware.AccessControl())
 
         // Protected routes
         protected := api.Use(middleware.AuthRequired())

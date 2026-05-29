@@ -9,6 +9,7 @@ import (
 	"bytes"
 
 	"godelion/db"
+	"godelion/middleware"
 	"godelion/models"
 
 	"github.com/gofiber/fiber/v2"
@@ -72,6 +73,9 @@ func UpdateSystemConfig(c *fiber.Ctx) error {
 		config.TwoFactorEnabled = req.TwoFactorEnabled
 		db.DB.Save(&config)
 	}
+
+	// Update access control cache
+	middleware.SetAccessConfig(config.DomainBinding, config.AuthorizedIPs)
 
 	LogAction(c, "Update", "SystemConfig", "Updated system configuration")
 
