@@ -42,12 +42,12 @@
                 <el-input v-model="userForm.new_username" placeholder="输入新用户名" size="large" class="!bg-zinc-800/50" />
               </div>
               <div>
-                <label class="block text-sm font-medium text-zinc-400 mb-2">新密码</label>
-                <el-input v-model="userForm.new_password" type="password" placeholder="留空表示不修改" show-password size="large" class="!bg-zinc-800/50" />
+                <label class="block text-sm font-medium text-zinc-400 mb-2">当前密码</label>
+                <el-input v-model="userForm.current_password" type="password" placeholder="输入当前密码" show-password size="large" class="!bg-zinc-800/50" />
               </div>
               <div>
-                <label class="block text-sm font-medium text-zinc-400 mb-2">当前密码 <span class="text-zinc-600">（修改时必填）</span></label>
-                <el-input v-model="userForm.current_password" type="password" placeholder="输入当前密码确认" show-password size="large" class="!bg-zinc-800/50" />
+                <label class="block text-sm font-medium text-zinc-400 mb-2">新密码</label>
+                <el-input v-model="userForm.new_password" type="password" placeholder="输入新密码" show-password size="large" class="!bg-zinc-800/50" />
               </div>
             </div>
             <div class="bg-zinc-800/30 rounded-xl p-5 border border-zinc-800">
@@ -499,8 +499,12 @@ const fetchPasskeys = async () => {
 }
 
 const handleUserSave = async () => {
-  if (userForm.new_password && !userForm.current_password) {
-    ElMessage.warning('修改密码时必须输入当前密码')
+  if (!userForm.new_password) {
+    ElMessage.warning('请输入新密码')
+    return
+  }
+  if (!userForm.current_password) {
+    ElMessage.warning('请输入当前密码')
     return
   }
 
