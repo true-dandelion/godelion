@@ -100,11 +100,6 @@
           </template>
         </el-table-column>
       </el-table>
-
-      <div class="mt-4 flex items-center justify-between text-xs text-zinc-500 px-2">
-        <span>当前存储限制: 10GB / 已使用 2.4GB</span>
-        <span class="flex items-center gap-1"><el-icon><Lock /></el-icon> 目录权限隔离开启中</span>
-      </div>
     </el-card>
 
     <!-- 移动文件对话框 -->
@@ -150,7 +145,6 @@ import {
   UploadFilled,
   Download,
   Delete,
-  Lock,
   Box,
   Position
 } from '@element-plus/icons-vue'
