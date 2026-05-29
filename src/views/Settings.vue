@@ -16,7 +16,7 @@
           class="px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2"
           :class="activeTab === tab.key ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
         >
-          <el-icon :size="16"><component :is="tab.icon" /></el-icon>
+          <el-icon :size="16"><User v-if="tab.icon === 'User'" /><Monitor v-else-if="tab.icon === 'Monitor'" /><Lock v-else /></el-icon>
           {{ tab.label }}
         </button>
       </div>
