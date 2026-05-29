@@ -76,9 +76,6 @@
         </div>
         
         <div class="flex items-center gap-6">
-          <el-badge is-dot class="item">
-            <el-icon :size="20" class="text-zinc-400 hover:text-white cursor-pointer transition-colors"><Bell /></el-icon>
-          </el-badge>
           <el-dropdown trigger="click" @command="handleCommand">
             <span class="el-dropdown-link flex items-center gap-2 cursor-pointer outline-none">
               <el-avatar :size="32" class="bg-zinc-800 text-zinc-300">
@@ -122,7 +119,6 @@ import {
   Lock,
   Expand,
   Fold,
-  Bell,
   UserFilled,
   CaretBottom,
   Setting,
