@@ -238,25 +238,7 @@
                 </div>
               </div>
 
-              <!-- 通行密钥 -->
-              <div>
-                <div class="flex items-center justify-between mb-3">
-                  <div class="flex items-center gap-2">
-                    <label class="text-sm font-medium text-zinc-400">通行密钥</label>
-                    <el-tooltip content="用于快速登录，最多绑定 5 个" placement="top">
-                      <el-icon :size="14" class="text-zinc-600 cursor-help"><QuestionFilled /></el-icon>
-                    </el-tooltip>
-                  </div>
-                  <span class="text-xs text-zinc-500">{{ passkeys.length }}/5</span>
-                </div>
-                <div class="flex items-center gap-3">
-                  <el-button @click="openPasskeyDialog" class="!bg-zinc-800 !text-white !border-zinc-700 hover:!bg-zinc-700">
-                    <el-icon class="mr-2"><Key /></el-icon>
-                    管理密钥
-                  </el-button>
-                  <span v-if="passkeys.length > 0" class="text-sm text-zinc-500">已绑定 {{ passkeys.length }} 个密钥</span>
-                </div>
-              </div>
+
             </div>
           </div>
         </div>
@@ -324,61 +306,6 @@
       </template>
     </el-dialog>
 
-    <!-- 通行密钥管理对话框 -->
-    <el-dialog v-model="passkeyDialogVisible" title="通行密钥管理" width="520px" custom-class="dark-dialog" :destroy-on-close="true">
-      <div class="mb-4 flex items-center justify-between">
-        <div>
-          <p class="text-white font-medium">我的通行密钥</p>
-          <p class="text-sm text-zinc-500">使用通行密钥可以快速安全地登录</p>
-        </div>
-        <el-button type="primary" @click="handleAddPasskey" :disabled="passkeys.length >= 5" class="!bg-white !text-black !border-none hover:!bg-zinc-200">
-          <el-icon class="mr-2"><Plus /></el-icon>
-          添加密钥
-        </el-button>
-      </div>
-      <div v-if="passkeys.length === 0" class="text-center py-8 text-zinc-500">
-        <el-icon :size="48" class="mb-3 opacity-30"><Key /></el-icon>
-        <p>暂无通行密钥</p>
-      </div>
-      <div v-else class="space-y-2">
-        <div v-for="key in passkeys" :key="key.id" class="flex items-center justify-between p-4 bg-zinc-800/50 rounded-xl border border-zinc-800">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center">
-              <el-icon :size="20" class="text-zinc-400"><Key /></el-icon>
-            </div>
-            <div>
-              <p class="text-white font-medium">{{ key.name }}</p>
-              <p class="text-xs text-zinc-500">创建于 {{ formatDate(key.created_at) }}</p>
-            </div>
-          </div>
-          <el-button link type="danger" @click="handleDeletePasskey(key.id)">
-            <el-icon><Delete /></el-icon>
-          </el-button>
-        </div>
-      </div>
-    </el-dialog>
-
-    <!-- 添加通行密钥对话框 -->
-    <el-dialog v-model="addPasskeyDialogVisible" title="添加通行密钥" width="400px" custom-class="dark-dialog" :destroy-on-close="true">
-      <div class="text-center py-4">
-        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center mx-auto mb-4">
-          <el-icon :size="28" class="text-blue-400"><Key /></el-icon>
-        </div>
-        <h4 class="text-white font-medium mb-2">创建新的通行密钥</h4>
-        <p class="text-sm text-zinc-500 mb-6">为您的账户添加一个安全的登录方式</p>
-      </div>
-      <el-form :model="newPasskeyForm" label-position="top">
-        <el-form-item label="密钥名称">
-          <el-input v-model="newPasskeyForm.name" placeholder="例如：我的 MacBook" size="large" class="!bg-zinc-800/50" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="addPasskeyDialogVisible = false" class="!bg-transparent !text-white !border-zinc-700">取消</el-button>
-        <el-button type="primary" :loading="addPasskeyLoading" @click="handleGeneratePasskey" class="!bg-white !text-black !border-none hover:!bg-zinc-200">
-          生成密钥
-        </el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -389,9 +316,6 @@ import {
   User,
   Monitor,
   Lock,
-  Key,
-  Plus,
-  Delete,
   QuestionFilled,
   Unlock,
   CircleCheck,
@@ -405,9 +329,6 @@ import {
   updateSystemConfig,
   changeUsername,
   changePassword,
-  getPasskeys,
-  createPasskey,
-  deletePasskey,
   get2FAStatus,
   generate2FA,
   verify2FA,
@@ -470,16 +391,6 @@ const configForm = reactive({
   two_factor_enabled: false
 })
 
-// Passkeys
-const passkeyDialogVisible = ref(false)
-const addPasskeyDialogVisible = ref(false)
-const passkeyLoading = ref(false)
-const addPasskeyLoading = ref(false)
-const passkeys = ref<any[]>([])
-const newPasskeyForm = reactive({
-  name: ''
-})
-
 const fetchUserProfile = async () => {
   userLoading.value = true
   try {
@@ -505,20 +416,6 @@ const fetchSystemConfig = async () => {
     ElMessage.error('获取系统配置失败')
   } finally {
     configLoading.value = false
-  }
-}
-
-const fetchPasskeys = async () => {
-  passkeyLoading.value = true
-  try {
-    const res: any = await getPasskeys()
-    if (res.code === 200) {
-      passkeys.value = res.data || []
-    }
-  } catch {
-    ElMessage.error('获取通行密钥失败')
-  } finally {
-    passkeyLoading.value = false
   }
 }
 
@@ -596,6 +493,9 @@ const handleConfigSave = async () => {
     const res: any = await updateSystemConfig(configForm)
     if (res.code === 200) {
       ElMessage.success('设置已保存')
+      // Re-fetch config to ensure frontend state matches backend
+      fetchSystemConfig()
+      fetch2FAStatus()
     } else {
       ElMessage.error(res.message || '保存失败')
     }
@@ -604,68 +504,6 @@ const handleConfigSave = async () => {
   } finally {
     configSaving.value = false
   }
-}
-
-const openPasskeyDialog = () => {
-  passkeyDialogVisible.value = true
-  fetchPasskeys()
-}
-
-const handleAddPasskey = () => {
-  if (passkeys.value.length >= 5) {
-    ElMessage.warning('最多只能绑定 5 个通行密钥')
-    return
-  }
-  addPasskeyDialogVisible.value = true
-  newPasskeyForm.name = ''
-}
-
-const handleGeneratePasskey = async () => {
-  if (!newPasskeyForm.name) {
-    ElMessage.warning('请输入密钥名称')
-    return
-  }
-
-  addPasskeyLoading.value = true
-  try {
-    const credentialId = Math.random().toString(36).substring(2, 15)
-    const publicKey = Math.random().toString(36).substring(2, 30)
-    
-    const res: any = await createPasskey({
-      name: newPasskeyForm.name,
-      credential_id: credentialId,
-      public_key: publicKey,
-      counter: 0
-    })
-    if (res.code === 200) {
-      ElMessage.success('通行密钥已创建')
-      addPasskeyDialogVisible.value = false
-      fetchPasskeys()
-    } else {
-      ElMessage.error(res.message || '创建失败')
-    }
-  } catch {
-    ElMessage.error('创建异常')
-  } finally {
-    addPasskeyLoading.value = false
-  }
-}
-
-const handleDeletePasskey = async (id: number) => {
-  try {
-    await ElMessageBox.confirm('确定要删除这个通行密钥吗？', '删除确认', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    const res: any = await deletePasskey(id)
-    if (res.code === 200) {
-      ElMessage.success('已删除')
-      fetchPasskeys()
-    } else {
-      ElMessage.error(res.message || '删除失败')
-    }
-  } catch {}
 }
 
 const formatDate = (dateStr: string) => {
@@ -782,7 +620,6 @@ onMounted(() => {
   initTabFromRoute()
   fetchUserProfile()
   fetchSystemConfig()
-  fetchPasskeys()
   fetch2FAStatus()
 })
 </script>
