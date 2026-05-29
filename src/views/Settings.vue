@@ -1,220 +1,308 @@
 <template>
-  <div class="space-y-6 max-w-4xl mx-auto mt-8">
-    <!-- 用户设置 -->
-    <el-card shadow="never" class="!bg-zinc-900 !border-zinc-800">
-      <template #header>
-        <div class="flex items-center gap-3">
-          <el-icon class="text-white text-xl"><User /></el-icon>
-          <span class="text-lg font-semibold text-white">用户设置</span>
-        </div>
-      </template>
-      <div class="py-4">
-        <el-form :model="userForm" label-position="top" v-loading="userLoading">
-          <el-form-item label="用户">
-            <el-input v-model="userForm.new_username" placeholder="更改当前用户名" class="w-full" />
-          </el-form-item>
-          <el-form-item label="密码">
-            <el-input v-model="userForm.new_password" type="password" placeholder="修改当前用户的密码" show-password class="w-full" />
-          </el-form-item>
-          <el-form-item label="当前密码（修改密码时必填）">
-            <el-input v-model="userForm.current_password" type="password" placeholder="输入当前密码以确认修改" show-password class="w-full" />
-          </el-form-item>
-          <div class="mt-4 flex justify-end">
-            <el-button type="primary" :loading="userSaving" @click="handleUserSave" class="!bg-white !text-black !border-none hover:!bg-zinc-200 px-8">
-              保存用户设置
-            </el-button>
-          </div>
-        </el-form>
+  <div class="h-full overflow-auto">
+    <!-- 页面标题 -->
+    <div class="px-8 py-6 border-b border-zinc-800">
+      <h1 class="text-2xl font-bold text-white">设置</h1>
+      <p class="text-zinc-500 text-sm mt-1">管理您的账户和系统配置</p>
+    </div>
+
+    <div class="p-8 max-w-6xl">
+      <!-- 标签页导航 -->
+      <div class="flex gap-1 mb-8 bg-zinc-900/50 p-1 rounded-xl w-fit">
+        <button
+          v-for="tab in tabs"
+          :key="tab.key"
+          @click="activeTab = tab.key"
+          class="px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2"
+          :class="activeTab === tab.key ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
+        >
+          <el-icon :size="16"><component :is="tab.icon" /></el-icon>
+          {{ tab.label }}
+        </button>
       </div>
-    </el-card>
 
-    <!-- 面板设置 -->
-    <el-card shadow="never" class="!bg-zinc-900 !border-zinc-800">
-      <template #header>
-        <div class="flex items-center gap-3">
-          <el-icon class="text-white text-xl"><Setting /></el-icon>
-          <span class="text-lg font-semibold text-white">面板设置</span>
-        </div>
-      </template>
-      <div class="py-4">
-        <el-form :model="configForm" label-position="top" v-loading="configLoading">
-          <el-form-item label="面板名称">
-            <el-input v-model="configForm.panel_name" placeholder="设置面板名称" class="w-full" />
-          </el-form-item>
-          
-          <el-form-item>
-            <div class="flex items-center gap-2">
-              <span class="text-zinc-300">超时时间</span>
-              <el-tooltip content="如果用户超过 86400 秒未操作面板，面板将自动退出登录" placement="top">
-                <el-icon class="text-zinc-500 cursor-help"><QuestionFilled /></el-icon>
-              </el-tooltip>
+      <!-- 用户设置 -->
+      <div v-show="activeTab === 'user'" class="space-y-6">
+        <!-- 账户信息卡片 -->
+        <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+          <div class="flex items-center gap-4 mb-6">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
+              <el-icon :size="28" class="text-blue-400"><User /></el-icon>
             </div>
-            <el-input-number v-model="configForm.session_timeout" :min="60" :max="864000" class="w-full" />
-          </el-form-item>
-
-          <el-form-item>
-            <div class="flex items-center gap-2">
-              <span class="text-zinc-300">面板 HTTPS</span>
-              <el-tooltip content="为面板设置HTTPS可提升访问安全性" placement="top">
-                <el-icon class="text-zinc-500 cursor-help"><QuestionFilled /></el-icon>
-              </el-tooltip>
+            <div>
+              <h3 class="text-lg font-semibold text-white">账户信息</h3>
+              <p class="text-zinc-500 text-sm">管理您的登录凭据</p>
             </div>
-            <el-switch v-model="configForm.enable_https" />
-          </el-form-item>
+          </div>
 
-          <el-form-item label="端口">
-            <div class="flex gap-4">
-              <div class="flex-1">
-                <span class="text-zinc-500 text-sm mb-1 block">HTTP 端口</span>
-                <el-input-number v-model="configForm.http_port" :min="1" :max="65535" class="w-full" />
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-zinc-400 mb-2">用户名</label>
+                <el-input v-model="userForm.new_username" placeholder="输入新用户名" size="large" class="!bg-zinc-800/50" />
               </div>
-              <div class="flex-1">
-                <span class="text-zinc-500 text-sm mb-1 block">HTTPS 端口</span>
-                <el-input-number v-model="configForm.https_port" :min="1" :max="65535" class="w-full" />
+              <div>
+                <label class="block text-sm font-medium text-zinc-400 mb-2">新密码</label>
+                <el-input v-model="userForm.new_password" type="password" placeholder="留空表示不修改" show-password size="large" class="!bg-zinc-800/50" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-zinc-400 mb-2">当前密码 <span class="text-zinc-600">（修改时必填）</span></label>
+                <el-input v-model="userForm.current_password" type="password" placeholder="输入当前密码确认" show-password size="large" class="!bg-zinc-800/50" />
               </div>
             </div>
-          </el-form-item>
-
-          <el-form-item>
-            <div class="flex items-center gap-2">
-              <span class="text-zinc-300">安全入口</span>
-              <el-tooltip content="开启安全访问接口时，只有访问正确的接口时，才能够访问到" placement="top">
-                <el-icon class="text-zinc-500 cursor-help"><QuestionFilled /></el-icon>
-              </el-tooltip>
+            <div class="bg-zinc-800/30 rounded-xl p-5 border border-zinc-800">
+              <h4 class="text-sm font-medium text-zinc-300 mb-3 flex items-center gap-2">
+                <el-icon :size="14" class="text-amber-500"><Warning /></el-icon>
+                安全提示
+              </h4>
+              <ul class="space-y-2 text-sm text-zinc-500">
+                <li class="flex items-start gap-2">
+                  <span class="text-zinc-600">•</span>
+                  修改用户名后需要重新登录
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="text-zinc-600">•</span>
+                  建议使用包含大小写字母、数字的强密码
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="text-zinc-600">•</span>
+                  定期更换密码可提高账户安全性
+                </li>
+              </ul>
             </div>
-            <el-input v-model="configForm.secure_entrypoint" placeholder="例如: /admin" class="w-full" />
-          </el-form-item>
+          </div>
 
-          <el-form-item>
-            <div class="flex items-center gap-2">
-              <span class="text-zinc-300">授权 IP</span>
-              <el-tooltip content="设置授权 IP 后，仅有设置中的 IP 可以访问本服务" placement="top">
-                <el-icon class="text-zinc-500 cursor-help"><QuestionFilled /></el-icon>
-              </el-tooltip>
-            </div>
-            <el-input v-model="configForm.authorized_ips" placeholder="多个 IP 用逗号分隔，例如: 192.168.1.1,10.0.0.1" class="w-full" />
-          </el-form-item>
-
-          <el-form-item>
-            <div class="flex items-center gap-2">
-              <span class="text-zinc-300">域名绑定</span>
-              <el-tooltip content="设置域名绑定后，仅能通过设置中域名访问本服务" placement="top">
-                <el-icon class="text-zinc-500 cursor-help"><QuestionFilled /></el-icon>
-              </el-tooltip>
-            </div>
-            <el-input v-model="configForm.domain_binding" placeholder="例如: example.com" class="w-full" />
-          </el-form-item>
-
-          <div class="mt-4 flex justify-end">
-            <el-button type="primary" :loading="configSaving" @click="handleConfigSave" class="!bg-white !text-black !border-none hover:!bg-zinc-200 px-8">
-              保存面板设置
+          <div class="mt-6 pt-6 border-t border-zinc-800 flex justify-end">
+            <el-button type="primary" :loading="userSaving" @click="handleUserSave" size="large" class="!bg-white !text-black !border-none hover:!bg-zinc-200 px-8">
+              保存更改
             </el-button>
           </div>
-        </el-form>
-      </div>
-    </el-card>
-
-    <!-- 安全设置 -->
-    <el-card shadow="never" class="!bg-zinc-900 !border-zinc-800">
-      <template #header>
-        <div class="flex items-center gap-3">
-          <el-icon class="text-white text-xl"><Lock /></el-icon>
-          <span class="text-lg font-semibold text-white">安全设置</span>
         </div>
-      </template>
-      <div class="py-4">
-        <el-form :model="configForm" label-position="top" v-loading="configLoading">
-          <el-form-item>
-            <div class="flex items-center gap-2">
-              <span class="text-zinc-300">密码过期时间（天）</span>
-              <el-tooltip content="为面板密码设置过期时间，过期后需要重新设置密码" placement="top">
-                <el-icon class="text-zinc-500 cursor-help"><QuestionFilled /></el-icon>
-              </el-tooltip>
-            </div>
-            <el-input-number v-model="configForm.password_expiry_days" :min="0" :max="365" class="w-full" />
-            <span class="text-zinc-500 text-xs mt-1">0 表示永不过期</span>
-          </el-form-item>
-
-          <el-form-item>
-            <div class="flex items-center gap-2">
-              <span class="text-zinc-300">密码复杂度验证</span>
-              <el-tooltip content="开启后密码必须满足长度为 8-30 位且包含字母、数字、特殊字符至少两项" placement="top">
-                <el-icon class="text-zinc-500 cursor-help"><QuestionFilled /></el-icon>
-              </el-tooltip>
-            </div>
-            <el-switch v-model="configForm.password_complexity" />
-          </el-form-item>
-
-          <el-form-item>
-            <div class="flex items-center gap-2">
-              <span class="text-zinc-300">两步验证</span>
-              <el-tooltip content="开启后会验证 2FA" placement="top">
-                <el-icon class="text-zinc-500 cursor-help"><QuestionFilled /></el-icon>
-              </el-tooltip>
-            </div>
-            <el-switch v-model="configForm.two_factor_enabled" />
-          </el-form-item>
-
-          <el-form-item>
-            <div class="flex items-center gap-2">
-              <span class="text-zinc-300">通行密钥</span>
-              <el-tooltip content="用于快速登录，最多可绑定 5 个通行密钥" placement="top">
-                <el-icon class="text-zinc-500 cursor-help"><QuestionFilled /></el-icon>
-              </el-tooltip>
-            </div>
-            <el-button @click="openPasskeyDialog" class="!bg-zinc-800 !text-white !border-zinc-700 hover:!bg-zinc-700">
-              <el-icon class="mr-2"><Key /></el-icon> 管理通行密钥
-            </el-button>
-            <span class="text-zinc-500 text-xs ml-2">已绑定 {{ passkeys.length }} 个密钥</span>
-          </el-form-item>
-
-          <div class="mt-4 flex justify-end">
-            <el-button type="primary" :loading="configSaving" @click="handleConfigSave" class="!bg-white !text-black !border-none hover:!bg-zinc-200 px-8">
-              保存安全设置
-            </el-button>
-          </div>
-        </el-form>
       </div>
-    </el-card>
+
+      <!-- 面板设置 -->
+      <div v-show="activeTab === 'panel'" class="space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- 基本信息 -->
+          <div class="lg:col-span-2 bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+            <h3 class="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+              <el-icon :size="18" class="text-purple-400"><Monitor /></el-icon>
+              基本信息
+            </h3>
+            <div class="space-y-5">
+              <div>
+                <label class="block text-sm font-medium text-zinc-400 mb-2">面板名称</label>
+                <el-input v-model="configForm.panel_name" placeholder="Godelion" size="large" class="!bg-zinc-800/50" />
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-zinc-400 mb-2">HTTP 端口</label>
+                  <el-input-number v-model="configForm.http_port" :min="1" :max="65535" size="large" class="w-full !bg-zinc-800/50" controls-position="right" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-zinc-400 mb-2">HTTPS 端口</label>
+                  <el-input-number v-model="configForm.https_port" :min="1" :max="65535" size="large" class="w-full !bg-zinc-800/50" controls-position="right" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- HTTPS 开关 -->
+          <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-semibold text-white">HTTPS</h3>
+              <el-switch v-model="configForm.enable_https" size="large" />
+            </div>
+            <p class="text-sm text-zinc-500 mb-4">启用 HTTPS 加密传输，提升访问安全性</p>
+            <div class="flex items-center gap-2 text-xs text-zinc-600 bg-zinc-800/50 rounded-lg p-3">
+              <el-icon :size="14"><InfoFilled /></el-icon>
+              需要配置 SSL 证书才能正常使用
+            </div>
+          </div>
+        </div>
+
+        <!-- 访问控制 -->
+        <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+            <el-icon :size="18" class="text-green-400"><Shield /></el-icon>
+            访问控制
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <label class="text-sm font-medium text-zinc-400">超时时间</label>
+                <el-tooltip content="超过设定时间未操作将自动退出登录" placement="top">
+                  <el-icon :size="14" class="text-zinc-600 cursor-help"><QuestionFilled /></el-icon>
+                </el-tooltip>
+              </div>
+              <el-input-number v-model="configForm.session_timeout" :min="60" :max="864000" size="large" class="w-full !bg-zinc-800/50" controls-position="right">
+                <template #suffix>秒</template>
+              </el-input-number>
+              <p class="text-xs text-zinc-600 mt-1">默认 86400 秒（24小时）</p>
+            </div>
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <label class="text-sm font-medium text-zinc-400">安全入口</label>
+                <el-tooltip content="设置后只能通过指定路径访问面板" placement="top">
+                  <el-icon :size="14" class="text-zinc-600 cursor-help"><QuestionFilled /></el-icon>
+                </el-tooltip>
+              </div>
+              <el-input v-model="configForm.secure_entrypoint" placeholder="例如: /admin" size="large" class="!bg-zinc-800/50" />
+            </div>
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <label class="text-sm font-medium text-zinc-400">域名绑定</label>
+                <el-tooltip content="设置后只能通过指定域名访问" placement="top">
+                  <el-icon :size="14" class="text-zinc-600 cursor-help"><QuestionFilled /></el-icon>
+                </el-tooltip>
+              </div>
+              <el-input v-model="configForm.domain_binding" placeholder="例如: panel.example.com" size="large" class="!bg-zinc-800/50" />
+            </div>
+          </div>
+          <div class="mt-5">
+            <div class="flex items-center gap-2 mb-2">
+              <label class="text-sm font-medium text-zinc-400">授权 IP 白名单</label>
+              <el-tooltip content="设置后只有指定 IP 可以访问面板，多个 IP 用逗号分隔" placement="top">
+                <el-icon :size="14" class="text-zinc-600 cursor-help"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </div>
+            <el-input v-model="configForm.authorized_ips" placeholder="192.168.1.100, 10.0.0.0/8, 172.16.0.1" size="large" class="!bg-zinc-800/50" />
+            <p class="text-xs text-zinc-600 mt-1">留空表示允许所有 IP 访问</p>
+          </div>
+        </div>
+
+        <div class="flex justify-end">
+          <el-button type="primary" :loading="configSaving" @click="handleConfigSave" size="large" class="!bg-white !text-black !border-none hover:!bg-zinc-200 px-8">
+            保存面板设置
+          </el-button>
+        </div>
+      </div>
+
+      <!-- 安全设置 -->
+      <div v-show="activeTab === 'security'" class="space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- 密码策略 -->
+          <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+            <h3 class="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+              <el-icon :size="18" class="text-amber-400"><Lock /></el-icon>
+              密码策略
+            </h3>
+            <div class="space-y-5">
+              <div class="flex items-center justify-between py-3 border-b border-zinc-800">
+                <div>
+                  <p class="text-white font-medium">密码复杂度验证</p>
+                  <p class="text-sm text-zinc-500">密码必须包含字母、数字、特殊字符至少两项</p>
+                </div>
+                <el-switch v-model="configForm.password_complexity" size="large" />
+              </div>
+              <div>
+                <div class="flex items-center gap-2 mb-3">
+                  <label class="text-sm font-medium text-zinc-400">密码过期时间</label>
+                  <el-tooltip content="设置密码有效期，过期后需重新设置" placement="top">
+                    <el-icon :size="14" class="text-zinc-600 cursor-help"><QuestionFilled /></el-icon>
+                  </el-tooltip>
+                </div>
+                <div class="flex items-center gap-4">
+                  <el-slider v-model="configForm.password_expiry_days" :max="90" :step="1" class="flex-1" />
+                  <span class="text-white font-mono w-16 text-right">{{ configForm.password_expiry_days }} 天</span>
+                </div>
+                <p class="text-xs text-zinc-600 mt-1">0 表示永不过期</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 双重认证 -->
+          <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+            <h3 class="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+              <el-icon :size="18" class="text-cyan-400"><CircleCheck /></el-icon>
+              双重认证
+            </h3>
+            <div class="space-y-5">
+              <div class="flex items-center justify-between py-3 border-b border-zinc-800">
+                <div>
+                  <p class="text-white font-medium">两步验证 (2FA)</p>
+                  <p class="text-sm text-zinc-500">登录时需要输入动态验证码</p>
+                </div>
+                <el-switch v-model="configForm.two_factor_enabled" size="large" />
+              </div>
+              <div>
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-2">
+                    <label class="text-sm font-medium text-zinc-400">通行密钥</label>
+                    <el-tooltip content="用于快速登录，最多绑定 5 个" placement="top">
+                      <el-icon :size="14" class="text-zinc-600 cursor-help"><QuestionFilled /></el-icon>
+                    </el-tooltip>
+                  </div>
+                  <span class="text-xs text-zinc-500">{{ passkeys.length }}/5</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <el-button @click="openPasskeyDialog" class="!bg-zinc-800 !text-white !border-zinc-700 hover:!bg-zinc-700">
+                    <el-icon class="mr-2"><Key /></el-icon>
+                    管理密钥
+                  </el-button>
+                  <span v-if="passkeys.length > 0" class="text-sm text-zinc-500">已绑定 {{ passkeys.length }} 个密钥</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end">
+          <el-button type="primary" :loading="configSaving" @click="handleConfigSave" size="large" class="!bg-white !text-black !border-none hover:!bg-zinc-200 px-8">
+            保存安全设置
+          </el-button>
+        </div>
+      </div>
+    </div>
 
     <!-- 通行密钥管理对话框 -->
-    <el-dialog v-model="passkeyDialogVisible" title="通行密钥管理" width="500px" custom-class="dark-dialog" :destroy-on-close="true">
-      <div class="mb-4">
-        <el-button type="primary" @click="handleAddPasskey" class="!bg-white !text-black !border-none hover:!bg-zinc-200">
-          <el-icon class="mr-2"><Plus /></el-icon> 添加通行密钥
+    <el-dialog v-model="passkeyDialogVisible" title="通行密钥管理" width="520px" custom-class="dark-dialog" :destroy-on-close="true">
+      <div class="mb-4 flex items-center justify-between">
+        <div>
+          <p class="text-white font-medium">我的通行密钥</p>
+          <p class="text-sm text-zinc-500">使用通行密钥可以快速安全地登录</p>
+        </div>
+        <el-button type="primary" @click="handleAddPasskey" :disabled="passkeys.length >= 5" class="!bg-white !text-black !border-none hover:!bg-zinc-200">
+          <el-icon class="mr-2"><Plus /></el-icon>
+          添加密钥
         </el-button>
-        <span class="text-zinc-500 text-xs ml-2">最多 5 个</span>
       </div>
-      <el-table :data="passkeys" v-loading="passkeyLoading" class="custom-dark-table">
-        <el-table-column prop="name" label="名称" />
-        <el-table-column prop="created_at" label="创建时间" width="180">
-          <template #default="{ row }">
-            <span class="text-zinc-500 text-sm">{{ formatDate(row.created_at) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="100">
-          <template #default="{ row }">
-            <el-button link type="danger" @click="handleDeletePasskey(row.id)">
-              <el-icon><Delete /></el-icon>
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <template #footer>
-        <el-button @click="passkeyDialogVisible = false" class="!bg-transparent !text-white !border-zinc-700">关闭</el-button>
-      </template>
+      <div v-if="passkeys.length === 0" class="text-center py-8 text-zinc-500">
+        <el-icon :size="48" class="mb-3 opacity-30"><Key /></el-icon>
+        <p>暂无通行密钥</p>
+      </div>
+      <div v-else class="space-y-2">
+        <div v-for="key in passkeys" :key="key.id" class="flex items-center justify-between p-4 bg-zinc-800/50 rounded-xl border border-zinc-800">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center">
+              <el-icon :size="20" class="text-zinc-400"><Key /></el-icon>
+            </div>
+            <div>
+              <p class="text-white font-medium">{{ key.name }}</p>
+              <p class="text-xs text-zinc-500">创建于 {{ formatDate(key.created_at) }}</p>
+            </div>
+          </div>
+          <el-button link type="danger" @click="handleDeletePasskey(key.id)">
+            <el-icon><Delete /></el-icon>
+          </el-button>
+        </div>
+      </div>
     </el-dialog>
 
     <!-- 添加通行密钥对话框 -->
     <el-dialog v-model="addPasskeyDialogVisible" title="添加通行密钥" width="400px" custom-class="dark-dialog" :destroy-on-close="true">
+      <div class="text-center py-4">
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center mx-auto mb-4">
+          <el-icon :size="28" class="text-blue-400"><Key /></el-icon>
+        </div>
+        <h4 class="text-white font-medium mb-2">创建新的通行密钥</h4>
+        <p class="text-sm text-zinc-500 mb-6">为您的账户添加一个安全的登录方式</p>
+      </div>
       <el-form :model="newPasskeyForm" label-position="top">
         <el-form-item label="密钥名称">
-          <el-input v-model="newPasskeyForm.name" placeholder="为这个密钥命名" />
+          <el-input v-model="newPasskeyForm.name" placeholder="例如：我的 MacBook" size="large" class="!bg-zinc-800/50" />
         </el-form-item>
       </el-form>
-      <div class="text-zinc-500 text-sm mb-4">
-        <p>点击"生成密钥"后，系统将为您生成一个通行密钥。请妥善保存。</p>
-      </div>
       <template #footer>
         <el-button @click="addPasskeyDialogVisible = false" class="!bg-transparent !text-white !border-zinc-700">取消</el-button>
         <el-button type="primary" :loading="addPasskeyLoading" @click="handleGeneratePasskey" class="!bg-white !text-black !border-none hover:!bg-zinc-200">
@@ -230,12 +318,16 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   User,
-  Setting,
+  Monitor,
   Lock,
   Key,
   Plus,
   Delete,
-  QuestionFilled
+  QuestionFilled,
+  Shield,
+  CircleCheck,
+  InfoFilled,
+  Warning
 } from '@element-plus/icons-vue'
 import {
   getProfile,
@@ -252,6 +344,13 @@ import { useUserStore } from '../store/user'
 
 const router = useRouter()
 const userStore = useUserStore()
+
+const activeTab = ref('user')
+const tabs = [
+  { key: 'user', label: '用户设置', icon: 'User' },
+  { key: 'panel', label: '面板设置', icon: 'Monitor' },
+  { key: 'security', label: '安全设置', icon: 'Lock' }
+]
 
 // User form
 const userLoading = ref(false)
@@ -289,7 +388,6 @@ const newPasskeyForm = reactive({
   name: ''
 })
 
-// Fetch user profile
 const fetchUserProfile = async () => {
   userLoading.value = true
   try {
@@ -304,7 +402,6 @@ const fetchUserProfile = async () => {
   }
 }
 
-// Fetch system config
 const fetchSystemConfig = async () => {
   configLoading.value = true
   try {
@@ -319,7 +416,6 @@ const fetchSystemConfig = async () => {
   }
 }
 
-// Fetch passkeys
 const fetchPasskeys = async () => {
   passkeyLoading.value = true
   try {
@@ -334,7 +430,6 @@ const fetchPasskeys = async () => {
   }
 }
 
-// Save user settings
 const handleUserSave = async () => {
   if (userForm.new_password && !userForm.current_password) {
     ElMessage.warning('修改密码时必须输入当前密码')
@@ -343,7 +438,6 @@ const handleUserSave = async () => {
 
   userSaving.value = true
   try {
-    // Change username if different
     if (userForm.new_username !== userStore.user?.username) {
       const usernameRes: any = await changeUsername({ new_username: userForm.new_username })
       if (usernameRes.code !== 200) {
@@ -353,7 +447,6 @@ const handleUserSave = async () => {
       }
     }
 
-    // Change password if provided
     if (userForm.new_password) {
       const passwordRes: any = await changePassword({
         current_password: userForm.current_password,
@@ -368,7 +461,6 @@ const handleUserSave = async () => {
 
     ElMessage.success('用户设置已保存')
     
-    // If password changed, require re-login
     if (userForm.new_password) {
       ElMessage.info('密码已修改，请重新登录')
       setTimeout(() => {
@@ -386,7 +478,6 @@ const handleUserSave = async () => {
   }
 }
 
-// Save config settings
 const handleConfigSave = async () => {
   configSaving.value = true
   try {
@@ -403,7 +494,6 @@ const handleConfigSave = async () => {
   }
 }
 
-// Passkey management
 const openPasskeyDialog = () => {
   passkeyDialogVisible.value = true
   fetchPasskeys()
@@ -426,7 +516,6 @@ const handleGeneratePasskey = async () => {
 
   addPasskeyLoading.value = true
   try {
-    // Generate random credential (simplified for demo)
     const credentialId = Math.random().toString(36).substring(2, 15)
     const publicKey = Math.random().toString(36).substring(2, 30)
     
@@ -470,7 +559,7 @@ const handleDeletePasskey = async (id: number) => {
 const formatDate = (dateStr: string) => {
   if (!dateStr) return 'N/A'
   const date = new Date(dateStr)
-  return date.toLocaleString()
+  return date.toLocaleDateString()
 }
 
 onMounted(() => {
@@ -481,7 +570,28 @@ onMounted(() => {
 </script>
 
 <style scoped>
-:deep(.el-input-number) {
-  width: 100%;
+:deep(.el-input__wrapper) {
+  background-color: rgba(39, 39, 42, 0.5);
+  box-shadow: none;
+  border: 1px solid rgba(63, 63, 70, 0.5);
+}
+:deep(.el-input__wrapper:hover) {
+  border-color: rgba(82, 82, 91, 0.8);
+}
+:deep(.el-input__wrapper.is-focus) {
+  border-color: #3b82f6;
+}
+:deep(.el-input__inner) {
+  color: white;
+}
+:deep(.el-slider__runway) {
+  background-color: rgba(63, 63, 70, 0.5);
+}
+:deep(.el-slider__bar) {
+  background-color: #3b82f6;
+}
+:deep(.el-slider__button) {
+  border-color: #3b82f6;
+  background-color: white;
 }
 </style>
