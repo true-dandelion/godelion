@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-full overflow-auto">
+  <div class="min-h-full">
     <!-- 页面标题 -->
     <div class="px-8 py-6 border-b border-zinc-800">
       <h1 class="text-2xl font-bold text-white">设置</h1>
