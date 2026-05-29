@@ -28,7 +28,6 @@ func AccessControl() fiber.Handler {
 		// Check authorized IPs
 		if config.AuthorizedIPs != "" {
 			clientIP := c.IP()
-			allowed := false
 
 			// Extract real IP from proxy headers
 			if xff := c.Get("X-Forwarded-For"); xff != "" {
@@ -38,6 +37,12 @@ func AccessControl() fiber.Handler {
 				clientIP = strings.TrimSpace(xri)
 			}
 
+			// Always allow localhost (127.0.0.1 and ::1)
+			if clientIP == "127.0.0.1" || clientIP == "::1" || clientIP == "localhost" {
+				return c.Next()
+			}
+
+			allowed := false
 			ips := strings.Split(config.AuthorizedIPs, ",")
 			for _, allowedIP := range ips {
 				allowedIP = strings.TrimSpace(allowedIP)
