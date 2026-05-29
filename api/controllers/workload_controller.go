@@ -19,11 +19,8 @@ package controllers
 
 // Create a helper function to get user dir inside workload_controller too
 func getWorkloadUserDir(userID string) string {
-	cwd, _ := os.Getwd()
-	if filepath.Base(cwd) == "api" {
-		cwd = filepath.Dir(cwd)
-	}
-	return filepath.Join(cwd, "godelion", "user", userID)
+	// Use /opt/godelion as the system-level storage root
+	return filepath.Join("/opt", "godelion", "user", userID)
 }
 
 func CreateWorkload(c *fiber.Ctx) error {

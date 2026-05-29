@@ -11,13 +11,8 @@ import (
 )
 
 func getUserDir(userID string) string {
-	cwd, _ := os.Getwd()
-	// Navigate up to the project root if api is the current working directory
-	if filepath.Base(cwd) == "api" {
-		cwd = filepath.Dir(cwd)
-	}
-	// Use project root directory to avoid root permission denied issues
-	return filepath.Join(cwd, "godelion", "user", userID)
+	// Use /opt/godelion as the system-level storage root
+	return filepath.Join("/opt", "godelion", "user", userID)
 }
 
 func validatePath(userID, requestedPath string) (string, error) {
