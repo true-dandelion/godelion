@@ -37,7 +37,7 @@ const routes: RouteRecordRaw[] = [
         path: 'file',
         name: 'File',
         component: () => import('../views/File.vue'),
-        meta: { title: '文件隔离' }
+        meta: { title: '文件' }
       },
       {
         path: 'ssl',

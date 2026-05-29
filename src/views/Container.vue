@@ -183,7 +183,7 @@
           <el-cascader
             v-model="deployForm.projectDir"
             :props="folderProps"
-            placeholder="选择 /godelion/user/ 下的项目文件夹"
+            placeholder="选择项目文件夹"
             class="w-full"
             :show-all-levels="true"
             @change="handleProjectDirChange"

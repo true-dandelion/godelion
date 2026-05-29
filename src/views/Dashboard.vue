@@ -141,7 +141,7 @@
             </el-button>
             <el-button @click="$router.push('/file')" class="!h-24 !bg-zinc-800 hover:!bg-zinc-700 !border-none !text-zinc-300 flex flex-col items-center justify-center gap-2 !m-0 transition-colors">
               <el-icon :size="24"><Folder /></el-icon>
-              <span>文件隔离</span>
+              <span>文件</span>
             </el-button>
           </div>
         </el-card>

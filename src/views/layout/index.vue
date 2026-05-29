@@ -35,7 +35,7 @@
 
         <el-menu-item index="/file">
           <el-icon><Folder /></el-icon>
-          <template #title>文件隔离</template>
+          <template #title>文件</template>
         </el-menu-item>
 
         <el-menu-item index="/ssl">
