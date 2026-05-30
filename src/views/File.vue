@@ -139,16 +139,17 @@
     <el-dialog
       v-model="editDialogVisible"
       :title="`编辑: ${editFileName}`"
-      width="800px"
-      custom-class="dark-dialog"
+      width="900px"
+      custom-class="dark-dialog edit-file-dialog"
       :destroy-on-close="true"
     >
-      <div class="mb-4">
+      <div class="mb-4 h-[500px]">
         <el-input
           v-model="editFileContent"
           type="textarea"
-          :rows="20"
-          class="!bg-zinc-800 !text-zinc-200 !border-zinc-700 font-mono"
+          :rows="22"
+          resize="none"
+          class="!bg-zinc-800 !text-zinc-200 !border-zinc-700 font-mono h-full edit-textarea"
           placeholder="文件内容..."
         />
       </div>
@@ -241,7 +242,7 @@ const isArchive = (name: string) => {
 
 const isEditable = (name: string) => {
   const lower = name.toLowerCase()
-  const editableExts = ['.go', '.js', '.php', '.css', '.html', '.py', '.txt', '.md']
+  const editableExts = ['.go', '.js', '.php', '.css', '.html', '.py', '.txt', '.md', '.json']
   return editableExts.some(ext => lower.endsWith(ext))
 }
 
