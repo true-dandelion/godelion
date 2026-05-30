@@ -43,8 +43,8 @@ service.interceptors.response.use(
   },
   error => {
     if (error.response) {
-      // Show backend error message if available
-      const message = error.response.data?.message || '请求失败'
+      // Show backend error message if available (support both "message" and "error" formats)
+      const message = error.response.data?.message || error.response.data?.error || '请求失败'
       ElMessage.error(message)
       if (error.response.status === 401 || error.response.status === 403) {
         const userStore = useUserStore()
