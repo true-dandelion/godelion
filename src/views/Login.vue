@@ -68,14 +68,7 @@
             <p class="text-zinc-500 text-sm mt-2">请输入 Google Authenticator 中的验证码</p>
           </div>
 
-          <el-input
-            v-model="twoFACode"
-            placeholder="请输入 6 位验证码"
-            size="large"
-            maxlength="6"
-            class="!bg-transparent text-center text-2xl tracking-[0.5em] font-mono"
-            @keyup.enter="handleVerify2FA"
-          />
+          <OTPInput v-model="twoFACode" class="my-4" />
 
           <el-button 
             type="primary" 
@@ -104,6 +97,7 @@ import { ElMessage } from 'element-plus'
 import { User, Lock, Platform, Key } from '@element-plus/icons-vue'
 import { useUserStore } from '../store/user'
 import { login, verifyLogin2FA } from '../api'
+import OTPInput from '../components/OTPInput.vue'
 
 const router = useRouter()
 const userStore = useUserStore()

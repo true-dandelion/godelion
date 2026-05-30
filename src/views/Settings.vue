@@ -286,7 +286,7 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-zinc-400 mb-2">输入验证码以确认开启</label>
-          <el-input v-model="twoFAVerifyCode" placeholder="请输入 6 位验证码" maxlength="6" size="large" class="!bg-zinc-800/50" />
+          <OTPInput v-model="twoFAVerifyCode" />
         </div>
       </div>
       <template #footer>
@@ -307,7 +307,7 @@
         <p class="text-sm text-zinc-500 mb-4">关闭后账户安全性将降低</p>
         <div>
           <label class="block text-sm font-medium text-zinc-400 mb-2">输入当前验证码以确认关闭</label>
-          <el-input v-model="twoFADisableCode" placeholder="请输入 6 位验证码" maxlength="6" size="large" class="!bg-zinc-800/50" />
+          <OTPInput v-model="twoFADisableCode" />
         </div>
       </div>
       <template #footer>
@@ -348,6 +348,7 @@ import {
 } from '../api'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../store/user'
+import OTPInput from '../components/OTPInput.vue'
 
 const router = useRouter()
 const route = useRoute()
