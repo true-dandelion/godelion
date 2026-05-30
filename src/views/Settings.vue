@@ -305,9 +305,34 @@
         </div>
         <p class="text-white font-medium mb-2">确定要关闭两步验证吗？</p>
         <p class="text-sm text-zinc-500 mb-4">关闭后账户安全性将降低</p>
-        <div>
+
+        <!-- 验证方式切换 -->
+        <div class="flex gap-2 mb-4 justify-center">
+          <el-button
+            :type="disable2FAMethod === 'code' ? 'primary' : 'default'"
+            size="small"
+            @click="disable2FAMethod = 'code'"
+            class="!rounded-lg"
+          >
+            验证码验证
+          </el-button>
+          <el-button
+            :type="disable2FAMethod === 'password' ? 'primary' : 'default'"
+            size="small"
+            @click="disable2FAMethod = 'password'"
+            class="!rounded-lg"
+          >
+            密码验证
+          </el-button>
+        </div>
+
+        <div v-if="disable2FAMethod === 'code'">
           <label class="block text-sm font-medium text-zinc-400 mb-2">输入当前验证码以确认关闭</label>
           <OTPInput v-model="twoFADisableCode" />
+        </div>
+        <div v-else>
+          <label class="block text-sm font-medium text-zinc-400 mb-2">输入登录密码以确认关闭</label>
+          <el-input v-model="twoFADisablePassword" type="password" placeholder="请输入登录密码" size="large" show-password class="!bg-zinc-800/50" />
         </div>
       </div>
       <template #footer>
@@ -548,7 +573,9 @@ const twoFADisableDialogVisible = ref(false)
 const twoFALoading = ref(false)
 const twoFAVerifying = ref(false)
 const twoFADisabling = ref(false)
-const twoFAQRCode = ref('')
+const twoFADisableCode = ref('')
+const twoFADisablePassword = ref('')
+const disable2FAMethod = ref<'code' | 'password'>('code')
 const twoFASecret = ref('')
 const twoFAVerifyCode = ref('')
 const twoFADisableCode = ref('')
@@ -618,13 +645,29 @@ const handleVerify2FA = async () => {
 }
 
 const handleDisable2FA = async () => {
-  if (!twoFADisableCode.value || twoFADisableCode.value.length !== 6) {
-    ElMessage.warning('请输入 6 位验证码')
-    return
+  if (disable2FAMethod.value === 'code') {
+    if (!twoFADisableCode.value || twoFADisableCode.value.length !== 6) {
+      ElMessage.warning('请输入 6 位验证码')
+      return
+    }
+  } else {
+    if (!twoFADisablePassword.value) {
+      ElMessage.warning('请输入登录密码')
+      return
+    }
   }
+
   twoFADisabling.value = true
   try {
-    const res: any = await disable2FA({ code: twoFADisableCode.value })
+    const payload: any = {
+      method: disable2FAMethod.value,
+    }
+    if (disable2FAMethod.value === 'code') {
+      payload.code = twoFADisableCode.value
+    } else {
+      payload.password = twoFADisablePassword.value
+    }
+    const res: any = await disable2FA(payload)
     if (res.code === 200) {
       ElMessage.success('两步验证已关闭')
       twoFADisableDialogVisible.value = false

@@ -387,7 +387,9 @@ func Verify2FA(c *fiber.Ctx) error {
 // Disable2FA disables 2FA
 func Disable2FA(c *fiber.Ctx) error {
 	type Req struct {
-		Code string `json:"code"`
+		Code     string `json:"code"`
+		Password string `json:"password"`
+		Method   string `json:"method"` // "code" or "password"
 	}
 	var req Req
 	if err := c.BodyParser(&req); err != nil {
@@ -401,11 +403,24 @@ func Disable2FA(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "两步验证未开启"})
 	}
 
-	// Verify code before disabling
-	if config.TwoFactorSecret != "" {
-		valid := totp.Validate(req.Code, config.TwoFactorSecret)
-		if !valid {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "验证码错误"})
+	// Verify by code or password
+	if req.Method == "password" {
+		// Verify with current user password
+		userID := fmt.Sprintf("%v", c.Locals("user_id"))
+		var user models.User
+		if err := db.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "用户不存在"})
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "密码错误"})
+		}
+	} else {
+		// Verify with TOTP code (default)
+		if config.TwoFactorSecret != "" {
+			valid := totp.Validate(req.Code, config.TwoFactorSecret)
+			if !valid {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "验证码错误"})
+			}
 		}
 	}
 
@@ -417,6 +432,6 @@ func Disable2FA(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"code":    200,
-		"message": "2FA disabled successfully",
+		"message": "两步验证已关闭",
 	})
 }
