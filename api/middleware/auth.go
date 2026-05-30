@@ -3,18 +3,14 @@ package middleware
 import (
 	"fmt"
 	"strings"
-	"time"
 
-	"godelion/controllers"
+	"godelion/session"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
 )
 
 var JwtSecret = []byte("super-secret-key-change-me") // In production, load from env
-
-// SessionTimeout for d_delion_id (7 days)
-const DelionSessionTimeout = 7 * 24 * time.Hour
 
 func AuthRequired() fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -47,21 +43,21 @@ func AuthRequired() fiber.Handler {
 		}
 
 		// Check if d_delion_id exists in session store
-		session, exists := controllers.DelionSessionStore[delionId]
+		sess, exists := session.DelionSessionStore[delionId]
 		if !exists {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid d_delion_id"})
 		}
 
 		// Check if session expired (7 days)
-		if time.Since(session.CreatedAt) > DelionSessionTimeout {
+		if sess.IsExpired() {
 			// Clean up expired session
-			delete(controllers.DelionSessionStore, delionId)
+			delete(session.DelionSessionStore, delionId)
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "d_delion_id expired"})
 		}
 
 		// Verify d_delion_id matches JWT user
 		jwtUserId := fmt.Sprintf("%v", claims["sub"])
-		sessionUserId := fmt.Sprintf("%v", session.UserID)
+		sessionUserId := fmt.Sprintf("%v", sess.UserID)
 		if sessionUserId != jwtUserId {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "d_delion_id mismatch"})
 		}

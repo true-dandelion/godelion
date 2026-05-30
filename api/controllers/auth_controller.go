@@ -1,35 +1,18 @@
 package controllers
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"time"
 
 	"godelion/db"
-	"godelion/models"
 	"godelion/middleware"
+	"godelion/models"
+	"godelion/session"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
 )
-
-// DelionSession stores d_delion_id session info
-type DelionSession struct {
-	UserID    uint
-	CreatedAt time.Time
-}
-
-// Session store for d_delion_id (in production, use Redis with TTL)
-var DelionSessionStore = make(map[string]*DelionSession)
-
-// generateDelionID generates 32-byte random hex string
-func generateDelionID() string {
-	bytes := make([]byte, 16)
-	rand.Read(bytes)
-	return hex.EncodeToString(bytes)
-}
 
 type LoginRequest struct {
 	Username string `json:"username"`
@@ -71,8 +54,8 @@ func Login(c *fiber.Ctx) error {
         }
 
         // Generate d_delion_id
-	delionID := generateDelionID()
-	DelionSessionStore[delionID] = &DelionSession{
+	delionID := session.GenerateDelionID()
+	session.DelionSessionStore[delionID] = &session.DelionSession{
 		UserID:    user.ID,
 		CreatedAt: time.Now(),
 	}
