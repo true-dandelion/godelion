@@ -16,65 +16,78 @@
           class="px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2"
           :class="activeTab === tab.key ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
         >
-          <el-icon :size="16"><User v-if="tab.icon === 'User'" /><Monitor v-else-if="tab.icon === 'Monitor'" /><Lock v-else /></el-icon>
+          <el-icon :size="16"><User v-if="tab.icon === 'User'" /><Lock v-else-if="tab.icon === 'Lock'" /><Monitor v-else-if="tab.icon === 'Monitor'" /><Unlock v-else /></el-icon>
           {{ tab.label }}
         </button>
       </div>
 
-      <!-- 用户设置 -->
+      <!-- 用户信息 -->
       <div v-show="activeTab === 'user'" class="space-y-6">
-        <!-- 账户信息卡片 -->
         <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
           <div class="flex items-center gap-4 mb-6">
             <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
               <el-icon :size="28" class="text-blue-400"><User /></el-icon>
             </div>
             <div>
-              <h3 class="text-lg font-semibold text-white">账户信息</h3>
-              <p class="text-zinc-500 text-sm">管理您的登录凭据</p>
+              <h3 class="text-lg font-semibold text-white">用户信息</h3>
+              <p class="text-zinc-500 text-sm">修改您的用户名</p>
             </div>
           </div>
 
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="space-y-4">
-              <div>
-                <label class="block text-sm font-medium text-zinc-400 mb-2">用户名</label>
-                <el-input v-model="userForm.new_username" placeholder="输入新用户名" size="large" class="!bg-zinc-800/50" />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-zinc-400 mb-2">当前密码</label>
-                <el-input v-model="userForm.current_password" type="password" placeholder="输入当前密码" show-password size="large" class="!bg-zinc-800/50" />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-zinc-400 mb-2">新密码</label>
-                <el-input v-model="userForm.new_password" type="password" placeholder="输入新密码" show-password size="large" class="!bg-zinc-800/50" />
-              </div>
+          <div class="max-w-md">
+            <div>
+              <label class="block text-sm font-medium text-zinc-400 mb-2">用户名</label>
+              <el-input v-model="userForm.new_username" placeholder="输入新用户名" size="large" class="!bg-zinc-800/50" />
             </div>
-            <div class="bg-zinc-800/30 rounded-xl p-5 border border-zinc-800">
-              <h4 class="text-sm font-medium text-zinc-300 mb-3 flex items-center gap-2">
-                <el-icon :size="14" class="text-amber-500"><WarningFilled /></el-icon>
-                安全提示
-              </h4>
-              <ul class="space-y-2 text-sm text-zinc-500">
-                <li class="flex items-start gap-2">
-                  <span class="text-zinc-600">•</span>
-                  修改用户名后需要重新登录
-                </li>
-                <li class="flex items-start gap-2">
-                  <span class="text-zinc-600">•</span>
-                  建议使用包含大小写字母、数字的强密码
-                </li>
-                <li class="flex items-start gap-2">
-                  <span class="text-zinc-600">•</span>
-                  定期更换密码可提高账户安全性
-                </li>
-              </ul>
+            <div class="mt-4 p-4 bg-zinc-800/30 rounded-xl border border-zinc-800">
+              <p class="text-sm text-zinc-500">
+                <el-icon :size="14" class="text-amber-500 mr-1"><WarningFilled /></el-icon>
+                修改用户名后需要重新登录
+              </p>
             </div>
           </div>
 
           <div class="mt-6 pt-6 border-t border-zinc-800 flex justify-end">
-            <el-button type="primary" :loading="userSaving" @click="handleUserSave" size="large" class="!bg-white !text-black !border-none hover:!bg-zinc-200 px-8">
-              保存更改
+            <el-button type="primary" :loading="userSaving" @click="handleUsernameSave" size="large" class="!bg-white !text-black !border-none hover:!bg-zinc-200 px-8">
+              保存用户名
+            </el-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 修改密码 -->
+      <div v-show="activeTab === 'password'" class="space-y-6">
+        <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+          <div class="flex items-center gap-4 mb-6">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/20 to-red-500/20 flex items-center justify-center">
+              <el-icon :size="28" class="text-amber-400"><Lock /></el-icon>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-white">修改密码</h3>
+              <p class="text-zinc-500 text-sm">更改您的登录密码</p>
+            </div>
+          </div>
+
+          <div class="max-w-md space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-zinc-400 mb-2">当前密码</label>
+              <el-input v-model="userForm.current_password" type="password" placeholder="输入当前密码" show-password size="large" class="!bg-zinc-800/50" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-zinc-400 mb-2">新密码</label>
+              <el-input v-model="userForm.new_password" type="password" placeholder="输入新密码" show-password size="large" class="!bg-zinc-800/50" />
+            </div>
+            <div class="p-4 bg-zinc-800/30 rounded-xl border border-zinc-800">
+              <p class="text-sm text-zinc-500">
+                <el-icon :size="14" class="text-amber-500 mr-1"><WarningFilled /></el-icon>
+                修改密码后需要重新登录
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-6 pt-6 border-t border-zinc-800 flex justify-end">
+            <el-button type="primary" :loading="userSaving" @click="handlePasswordSave" size="large" class="!bg-white !text-black !border-none hover:!bg-zinc-200 px-8">
+              保存密码
             </el-button>
           </div>
         </div>
@@ -342,9 +355,10 @@ const userStore = useUserStore()
 
 const activeTab = ref('user')
 const tabs = [
-  { key: 'user', label: '用户设置', icon: 'User', path: '/settings' },
+  { key: 'user', label: '用户信息', icon: 'User', path: '/settings' },
+  { key: 'password', label: '修改密码', icon: 'Lock', path: '/settings/password' },
   { key: 'panel', label: '面板设置', icon: 'Monitor', path: '/settings/panel' },
-  { key: 'security', label: '安全设置', icon: 'Lock', path: '/settings/security' }
+  { key: 'security', label: '安全设置', icon: 'Unlock', path: '/settings/security' }
 ]
 
 // Sync tab with route
@@ -359,7 +373,8 @@ const switchTab = (key: string) => {
 // Initialize tab from route
 const initTabFromRoute = () => {
   const path = route.path
-  if (path === '/settings/panel') activeTab.value = 'panel'
+  if (path === '/settings/password') activeTab.value = 'password'
+  else if (path === '/settings/panel') activeTab.value = 'panel'
   else if (path === '/settings/security') activeTab.value = 'security'
   else activeTab.value = 'user'
 }
