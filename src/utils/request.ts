@@ -8,6 +8,21 @@ const service = axios.create({
   timeout: 60000 // 增加默认超时时间到 60 秒
 })
 
+// Deduplicate error messages: same message within 3s only shows once
+let lastErrorMessage = ''
+let lastErrorTime = 0
+const ERROR_DEBOUNCE_MS = 3000
+
+const showError = (message: string) => {
+  const now = Date.now()
+  if (message === lastErrorMessage && now - lastErrorTime < ERROR_DEBOUNCE_MS) {
+    return // Skip duplicate within debounce window
+  }
+  lastErrorMessage = message
+  lastErrorTime = now
+  ElMessage.error(message)
+}
+
 service.interceptors.request.use(
   config => {
     const userStore = useUserStore()
@@ -31,7 +46,7 @@ service.interceptors.response.use(
     const { data } = response
     // If the custom code is not 0 or 200, it is judged as an error.
     if (data.code !== 0 && data.code !== 200) {
-      ElMessage.error(data.message || '请求失败')
+      showError(data.message || '请求失败')
       if (data.code === 401 || data.code === 403) {
         const userStore = useUserStore()
         userStore.logout()
@@ -45,14 +60,14 @@ service.interceptors.response.use(
     if (error.response) {
       // Show backend error message if available (support both "message" and "error" formats)
       const message = error.response.data?.message || error.response.data?.error || '请求失败'
-      ElMessage.error(message)
+      showError(message)
       if (error.response.status === 401 || error.response.status === 403) {
         const userStore = useUserStore()
         userStore.logout()
         router.push('/login')
       }
     } else {
-      ElMessage.error('请求失败')
+      showError('请求失败')
     }
     return Promise.reject(error)
   }
