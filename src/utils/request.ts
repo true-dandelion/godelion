@@ -11,8 +11,13 @@ const service = axios.create({
 service.interceptors.request.use(
   config => {
     const userStore = useUserStore()
+    // Send JWT in Authorization header
     if (userStore.token) {
       config.headers.Authorization = `Bearer ${userStore.token}`
+    }
+    // Send d_delion_id in custom header
+    if (userStore.delionId) {
+      config.headers['X-Delion-Id'] = userStore.delionId
     }
     return config
   },

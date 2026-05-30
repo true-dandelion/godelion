@@ -94,6 +94,7 @@ const handleLogin = async () => {
         const res = await login({ username: loginForm.username, password: loginForm.password })
         if (res.code === 200) {
           userStore.setToken(res.data.token)
+          userStore.setDelionId(res.data.user.id)
           userStore.setUserInfo(res.data.user)
           ElMessage.success('登录成功')
           router.push('/')
