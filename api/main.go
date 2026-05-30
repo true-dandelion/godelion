@@ -3,6 +3,9 @@ package main
 import (
 	"crypto/tls"
 	"log"
+	"net/http"
+	"os"
+	"path/filepath"
 
 	"godelion/controllers"
 	"godelion/db"
@@ -12,6 +15,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/filesystem"
 )
 
 func main() {
@@ -33,6 +37,17 @@ func main() {
 
 	app.Use(cors.New())
 	app.Use(logger.New())
+
+	// Serve frontend static files from godelion_public
+	publicDir := filepath.Join(".", "godelion_public")
+	if info, err := os.Stat(publicDir); err == nil && info.IsDir() {
+		app.Use(filesystem.New(filesystem.Config{
+			Root:       http.Dir(publicDir),
+			MaxAge:     86400,
+			IndexFile:  "index.html",
+			PathPrefix: "",
+		}))
+	}
 
 	// Proxy handler runs before everything else. It checks the host header.
 	// If a matching reverse proxy is found, it handles the request and returns.
