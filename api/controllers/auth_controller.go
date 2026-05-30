@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -9,9 +11,25 @@ import (
 	"godelion/middleware"
 
 	"github.com/gofiber/fiber/v2"
-        "github.com/golang-jwt/jwt/v4"
-        "golang.org/x/crypto/bcrypt"
+	"github.com/golang-jwt/jwt/v4"
+	"golang.org/x/crypto/bcrypt"
 )
+
+// DelionSession stores d_delion_id session info
+type DelionSession struct {
+	UserID    uint
+	CreatedAt time.Time
+}
+
+// Session store for d_delion_id (in production, use Redis with TTL)
+var DelionSessionStore = make(map[string]*DelionSession)
+
+// generateDelionID generates 32-byte random hex string
+func generateDelionID() string {
+	bytes := make([]byte, 16)
+	rand.Read(bytes)
+	return hex.EncodeToString(bytes)
+}
 
 type LoginRequest struct {
 	Username string `json:"username"`
@@ -52,13 +70,21 @@ func Login(c *fiber.Ctx) error {
                 return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not login"})
         }
 
-        LogAction(c, "Login", "Auth", "User logged in: "+user.Username)
+        // Generate d_delion_id
+	delionID := generateDelionID()
+	DelionSessionStore[delionID] = &DelionSession{
+		UserID:    user.ID,
+		CreatedAt: time.Now(),
+	}
 
-        return c.JSON(fiber.Map{
+	LogAction(c, "Login", "Auth", "User logged in: "+user.Username)
+
+	return c.JSON(fiber.Map{
 		"code":    200,
 		"message": "Login successful",
 		"data": fiber.Map{
-			"token": tokenString,
+			"token":       tokenString,
+			"d_delion_id": delionID,
 			"user": fiber.Map{
 				"id":       user.ID,
 				"username": user.Username,

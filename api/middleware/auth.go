@@ -2,9 +2,10 @@ package middleware
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
+
+	"godelion/controllers"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
@@ -12,8 +13,8 @@ import (
 
 var JwtSecret = []byte("super-secret-key-change-me") // In production, load from env
 
-// Session store for d_delion_id validation (in production, use Redis)
-var sessionStore = make(map[string]int64) // delionId -> userId
+// SessionTimeout for d_delion_id (7 days)
+const DelionSessionTimeout = 7 * 24 * time.Hour
 
 func AuthRequired() fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -45,26 +46,23 @@ func AuthRequired() fiber.Handler {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing d_delion_id"})
 		}
 
-		// Parse d_delion_id format: userId_timestamp
-		parts := strings.Split(delionId, "_")
-		if len(parts) != 2 {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid d_delion_id format"})
+		// Check if d_delion_id exists in session store
+		session, exists := controllers.DelionSessionStore[delionId]
+		if !exists {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid d_delion_id"})
 		}
 
-		delionUserId := parts[0]
-		timestamp, err := strconv.ParseInt(parts[1], 10, 64)
-		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid d_delion_id timestamp"})
-		}
-
-		// Check if timestamp is within 7 days
-		if time.Now().UnixMilli()-timestamp > 7*24*60*60*1000 {
+		// Check if session expired (7 days)
+		if time.Since(session.CreatedAt) > DelionSessionTimeout {
+			// Clean up expired session
+			delete(controllers.DelionSessionStore, delionId)
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "d_delion_id expired"})
 		}
 
-		// Verify delionId matches JWT user
+		// Verify d_delion_id matches JWT user
 		jwtUserId := fmt.Sprintf("%v", claims["sub"])
-		if delionUserId != jwtUserId {
+		sessionUserId := fmt.Sprintf("%v", session.UserID)
+		if sessionUserId != jwtUserId {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "d_delion_id mismatch"})
 		}
 

@@ -15,11 +15,7 @@ const removeCookie = (name: string) => {
   document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
 }
 
-// Generate d_delion_id: userId_timestamp
-const generateDelionId = (userId: string | number): string => {
-  const timestamp = Date.now()
-  return `${userId}_${timestamp}`
-}
+
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -32,8 +28,7 @@ export const useUserStore = defineStore('user', {
       this.token = token
       localStorage.setItem('token', token)
     },
-    setDelionId(userId: string | number) {
-      const delionId = generateDelionId(userId)
+    setDelionId(delionId: string) {
       this.delionId = delionId
       setCookie('d_delion_id', delionId)
     },
