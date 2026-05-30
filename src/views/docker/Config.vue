@@ -28,7 +28,8 @@
         <el-input
           v-model="configContent"
           type="textarea"
-          :rows="15"
+          :rows="20"
+          resize="none"
           placeholder="请输入 JSON 格式的配置..."
           class="font-mono text-sm custom-textarea"
         />
