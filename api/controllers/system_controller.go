@@ -63,6 +63,7 @@ func InstallDocker(c *fiber.Ctx) error {
 }
 
 func StartDocker(c *fiber.Ctx) error {
+	// Start docker service first, then socket
 	cmd := exec.Command("systemctl", "start", "docker")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -72,6 +73,10 @@ func StartDocker(c *fiber.Ctx) error {
 			"error":   string(output),
 		})
 	}
+	
+	// Start docker.socket after docker service
+	exec.Command("systemctl", "start", "docker.socket").Run()
+	
 	return c.JSON(fiber.Map{
 		"code":    200,
 		"message": "Docker 启动成功",
@@ -79,6 +84,10 @@ func StartDocker(c *fiber.Ctx) error {
 }
 
 func StopDocker(c *fiber.Ctx) error {
+	// Stop docker.socket first to prevent it from restarting docker service
+	exec.Command("systemctl", "stop", "docker.socket").Run()
+	
+	// Then stop docker service
 	cmd := exec.Command("systemctl", "stop", "docker")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -95,6 +104,10 @@ func StopDocker(c *fiber.Ctx) error {
 }
 
 func RestartDocker(c *fiber.Ctx) error {
+	// Stop docker.socket first
+	exec.Command("systemctl", "stop", "docker.socket").Run()
+	
+	// Restart docker service
 	cmd := exec.Command("systemctl", "restart", "docker")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -104,6 +117,10 @@ func RestartDocker(c *fiber.Ctx) error {
 			"error":   string(output),
 		})
 	}
+	
+	// Start docker.socket after docker service
+	exec.Command("systemctl", "start", "docker.socket").Run()
+	
 	return c.JSON(fiber.Map{
 		"code":    200,
 		"message": "Docker 重启成功",
