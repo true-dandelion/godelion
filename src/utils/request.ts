@@ -43,13 +43,17 @@ service.interceptors.response.use(
   },
   error => {
     if (error.response) {
+      // Show backend error message if available
+      const message = error.response.data?.message || '请求失败'
+      ElMessage.error(message)
       if (error.response.status === 401 || error.response.status === 403) {
         const userStore = useUserStore()
         userStore.logout()
         router.push('/login')
       }
+    } else {
+      ElMessage.error('请求失败')
     }
-    ElMessage.error('请求失败')
     return Promise.reject(error)
   }
 )
