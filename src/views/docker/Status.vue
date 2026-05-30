@@ -158,11 +158,8 @@ const handleInstallDocker = () => {
       if (res.code === 200) {
         ElMessage.success('Docker 安装并启动成功！')
         await fetchDockerStatus()
-      } else {
-        ElMessage.error(res.message || '安装失败')
       }
-    } catch (error: any) {
-      ElMessage.error(error.response?.data?.error || '安装过程发生异常')
+    } catch {
     } finally {
       installing.value = false
     }
@@ -177,11 +174,8 @@ const handleStartDocker = async () => {
     if (res.code === 200) {
       ElMessage.success('Docker 启动成功')
       await fetchDockerStatus()
-    } else {
-      ElMessage.error(res.message || '启动失败')
     }
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.error || '启动异常')
+  } catch {
   } finally {
     operating.value = false
   }
@@ -201,11 +195,8 @@ const handleRestartDocker = async () => {
       if (res.code === 200) {
         ElMessage.success('Docker 重启成功')
         await fetchDockerStatus()
-      } else {
-        ElMessage.error(res.message || '重启失败')
       }
-    } catch (error: any) {
-      ElMessage.error(error.response?.data?.error || '重启异常')
+    } catch {
     } finally {
       operating.value = false
     }
@@ -220,11 +211,8 @@ const handleStopDocker = async () => {
     if (res.code === 200) {
       ElMessage.success('Docker 停止成功')
       await fetchDockerStatus()
-    } else {
-      ElMessage.error(res.message || '停止失败')
     }
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.error || '停止异常')
+  } catch {
   } finally {
     operating.value = false
   }

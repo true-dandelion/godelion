@@ -413,7 +413,6 @@ const fetchUserProfile = async () => {
       userForm.new_username = res.data.username
     }
   } catch {
-    ElMessage.error('获取用户信息失败')
   } finally {
     userLoading.value = false
   }
@@ -427,7 +426,6 @@ const fetchSystemConfig = async () => {
       Object.assign(configForm, res.data)
     }
   } catch {
-    ElMessage.error('获取系统配置失败')
   } finally {
     configLoading.value = false
   }
@@ -453,11 +451,8 @@ const handleUsernameSave = async () => {
         userStore.logout()
         router.push('/login')
       }, 1500)
-    } else {
-      ElMessage.error(usernameRes.message || '修改用户名失败')
     }
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.error || '保存失败')
+  } catch {
   } finally {
     userSaving.value = false
   }
@@ -504,11 +499,8 @@ const handlePasswordSave = async () => {
       }, 1500)
       userForm.current_password = ''
       userForm.new_password = ''
-    } else {
-      ElMessage.error(passwordRes.message || '修改密码失败')
     }
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.error || '保存失败')
+  } catch {
   } finally {
     userSaving.value = false
   }
@@ -522,11 +514,8 @@ const handleConfigSave = async () => {
       ElMessage.success('设置已保存')
       fetchSystemConfig()
       fetch2FAStatus()
-    } else {
-      ElMessage.error(res.message || '保存失败')
     }
   } catch {
-    ElMessage.error('保存异常')
   } finally {
     configSaving.value = false
   }
@@ -538,11 +527,9 @@ const handlePasswordComplexityChange = async (val: boolean) => {
     if (res.code === 200) {
       ElMessage.success(val ? '密码复杂度验证已开启' : '密码复杂度验证已关闭')
     } else {
-      ElMessage.error(res.message || '操作失败')
       fetchSystemConfig()
     }
   } catch {
-    ElMessage.error('操作异常')
     fetchSystemConfig()
   }
 }
@@ -603,11 +590,8 @@ const handleGenerate2FA = async () => {
     if (res.code === 200) {
       twoFAQRCode.value = res.data.qr_code
       twoFASecret.value = res.data.secret
-    } else {
-      ElMessage.error(res.message || '生成失败')
     }
   } catch {
-    ElMessage.error('生成异常')
   } finally {
     twoFALoading.value = false
   }
@@ -625,11 +609,8 @@ const handleVerify2FA = async () => {
       ElMessage.success('两步验证已开启')
       twoFADialogVisible.value = false
       twoFAEnabled.value = true
-    } else {
-      ElMessage.error(res.message || res.error || '验证失败')
     }
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.error || '验证异常')
+  } catch {
   } finally {
     twoFAVerifying.value = false
   }
@@ -647,11 +628,8 @@ const handleDisable2FA = async () => {
       ElMessage.success('两步验证已关闭')
       twoFADisableDialogVisible.value = false
       twoFAEnabled.value = false
-    } else {
-      ElMessage.error(res.message || res.error || '关闭失败')
     }
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.error || '关闭异常')
+  } catch {
   } finally {
     twoFADisabling.value = false
   }

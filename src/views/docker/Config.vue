@@ -54,11 +54,8 @@ const fetchConfig = async () => {
     const res: any = await getDockerConfig()
     if (res.code === 200) {
       configContent.value = res.data || '{\n}'
-    } else {
-      ElMessage.error(res.message || '获取配置失败')
     }
-  } catch (error) {
-    ElMessage.error('获取配置异常')
+  } catch {
   } finally {
     loading.value = false
   }
@@ -93,7 +90,6 @@ const handleSaveAndRestart = async () => {
       // Save config
       const saveRes: any = await updateDockerConfig(configContent.value)
       if (saveRes.code !== 200) {
-        ElMessage.error(saveRes.message || '保存配置失败')
         saving.value = false
         return
       }
@@ -104,11 +100,8 @@ const handleSaveAndRestart = async () => {
       const restartRes: any = await restartDocker()
       if (restartRes.code === 200) {
         ElMessage.success('Docker 重启成功，配置已生效')
-      } else {
-        ElMessage.error(restartRes.message || 'Docker 重启失败')
       }
-    } catch (error: any) {
-      ElMessage.error(error.response?.data?.error || '操作异常')
+    } catch {
     } finally {
       saving.value = false
     }

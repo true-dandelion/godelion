@@ -627,11 +627,8 @@ const fetchContainers = async () => {
         }
         return c
       })
-    } else {
-      ElMessage.error(res.message || '获取容器列表失败')
     }
-  } catch (error) {
-    ElMessage.error('获取容器列表异常')
+  } catch {
   } finally {
     loading.value = false
   }
@@ -675,16 +672,8 @@ const handleAction = async (row: any, action: string) => {
     if (res && res.code === 200) {
       ElMessage.success(`${action === 'start' ? '启动' : action === 'restart' ? '重启' : '停止'}成功`)
       fetchContainers()
-    } else {
-      ElMessage.error(res?.message || '操作失败')
     }
-  } catch (error: any) {
-    if (error.message && error.message.includes('timeout')) {
-      ElMessage.warning('请求超时，但后端可能仍在处理，请稍后刷新页面查看状态')
-      setTimeout(() => fetchContainers(), 3000)
-    } else {
-      ElMessage.error('操作异常')
-    }
+  } catch {
   }
 }
 
@@ -701,11 +690,8 @@ const handleDelete = (row: any) => {
       if (res.code === 200) {
         ElMessage.success('容器已删除')
         fetchContainers()
-      } else {
-        ElMessage.error(res.message || '删除失败')
       }
-    } catch (error) {
-      ElMessage.error('删除请求异常')
+    } catch {
     } finally {
       loading.value = false
     }
@@ -765,11 +751,8 @@ const submitEdit = async () => {
       ElMessage.success('更新成功')
       editDialogVisible.value = false
       fetchContainers()
-    } else {
-      ElMessage.error(res.message || '更新失败')
     }
-  } catch (error) {
-    ElMessage.error('请求异常')
+  } catch {
   } finally {
     loading.value = false
   }
@@ -849,11 +832,8 @@ const handleDeploy = async () => {
 			fetchContainers()
 			// 启动轮询，等待异步创建完成
 			startStatusPolling()
-		} else {
-			ElMessage.error(res.message || '创建失败')
 		}
-	} catch (error: any) {
-		ElMessage.error(error.response?.data?.error || '创建异常')
+	} catch {
 	} finally {
 		loading.value = false
 	}

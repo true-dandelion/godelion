@@ -98,11 +98,8 @@ const handleLogin = async () => {
           userStore.setUserInfo(res.data.user)
           ElMessage.success('登录成功')
           router.push('/')
-        } else {
-          ElMessage.error(res.message || '登录失败')
         }
-      } catch (error: any) {
-        ElMessage.error('登录失败')
+      } catch {
       } finally {
         loading.value = false
       }

@@ -254,11 +254,8 @@ const handleExtract = async (row: any) => {
     if (res.code === 200) {
       ElMessage.success('解压成功')
       fetchFiles()
-    } else {
-      ElMessage.error(res.message || '解压失败')
     }
-  } catch (error) {
-    ElMessage.error('解压异常')
+  } catch {
   }
 }
 
@@ -278,11 +275,8 @@ const openEditDialog = async (row: any) => {
     const res: any = await readFileContent(editFilePath.value)
     if (res.code === 200) {
       editFileContent.value = res.data || ''
-    } else {
-      ElMessage.error(res.message || '读取文件失败')
     }
-  } catch (error) {
-    ElMessage.error('读取文件异常')
+  } catch {
   }
 }
 
@@ -296,11 +290,8 @@ const confirmEditSave = async () => {
     if (res.code === 200) {
       ElMessage.success('文件保存成功')
       editDialogVisible.value = false
-    } else {
-      ElMessage.error(res.message || '保存失败')
     }
-  } catch (error) {
-    ElMessage.error('保存异常')
+  } catch {
   } finally {
     editSaving.value = false
   }
@@ -324,11 +315,8 @@ const confirmMove = async () => {
       ElMessage.success('移动成功')
       moveDialogVisible.value = false
       fetchFiles()
-    } else {
-      ElMessage.error(res.message || '移动失败')
     }
-  } catch (error) {
-    ElMessage.error('移动异常')
+  } catch {
   }
 }
 
@@ -388,11 +376,9 @@ const fetchFiles = async () => {
         permissions: f.is_dir ? 'drwxr-xr-x' : '-rw-r--r--'
       }))
     } else {
-      ElMessage.error(res.message || '获取文件列表失败')
       files.value = []
     }
-  } catch (error) {
-    ElMessage.error('获取文件列表异常')
+  } catch {
     files.value = []
   } finally {
     loading.value = false
@@ -407,11 +393,9 @@ const handleUpload = (file: File) => {
       ElMessage.success('上传成功')
       fetchFiles()
     } else {
-      ElMessage.error(res.message || '上传失败')
       loading.value = false
     }
-  }).catch((error: any) => {
-    ElMessage.error('上传异常')
+  }).catch(() => {
     loading.value = false
   })
   
@@ -431,11 +415,8 @@ const handleCreateFolder = () => {
       if (res.code === 200) {
         ElMessage.success('创建成功')
         fetchFiles()
-      } else {
-        ElMessage.error(res.message || '创建失败')
       }
-    } catch (error) {
-      ElMessage.error('创建异常')
+    } catch {
     }
   }).catch(() => {})
 }
@@ -453,11 +434,8 @@ const handleDelete = (row: any) => {
       if (res.code === 200) {
         ElMessage.success('已删除')
         fetchFiles()
-      } else {
-        ElMessage.error(res.message || '删除失败')
       }
-    } catch (error) {
-      ElMessage.error('删除异常')
+    } catch {
     }
   }).catch(() => {})
 }
