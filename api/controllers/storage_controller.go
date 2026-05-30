@@ -240,3 +240,55 @@ func ExtractArchive(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"code": 200, "message": "Extracted successfully"})
 }
+
+func ReadFileContent(c *fiber.Ctx) error {
+	userID := fmt.Sprintf("%v", c.Locals("user_id"))
+	path := c.Query("path", "")
+
+	if path == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Path is required"})
+	}
+
+	targetPath, err := validatePath(userID, path)
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
+	}
+
+	content, err := os.ReadFile(targetPath)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to read file"})
+	}
+
+	return c.JSON(fiber.Map{
+		"code":    200,
+		"message": "Success",
+		"data":    string(content),
+	})
+}
+
+func SaveFileContent(c *fiber.Ctx) error {
+	userID := fmt.Sprintf("%v", c.Locals("user_id"))
+
+	type Req struct {
+		Path    string `json:"path"`
+		Content string `json:"content"`
+	}
+	var req Req
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	targetPath, err := validatePath(userID, req.Path)
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
+	}
+
+	if err := os.WriteFile(targetPath, []byte(req.Content), 0644); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save file"})
+	}
+
+	return c.JSON(fiber.Map{
+		"code":    200,
+		"message": "File saved successfully",
+	})
+}

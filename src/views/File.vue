@@ -81,6 +81,10 @@
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <div class="flex items-center gap-3" @click.stop>
+              <el-button v-if="row.type === 'file' && isEditable(row.name)" link type="primary" class="!p-0 hover:opacity-80" @click.stop="openEditDialog(row)">
+                <el-icon :size="18"><Edit /></el-icon>
+              </el-button>
+              
               <el-button v-if="row.type === 'file'" link type="primary" class="!p-0 hover:opacity-80">
                 <el-icon :size="18"><Download /></el-icon>
               </el-button>
@@ -130,13 +134,40 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 文件编辑对话框 -->
+    <el-dialog
+      v-model="editDialogVisible"
+      :title="`编辑: ${editFileName}`"
+      width="800px"
+      custom-class="dark-dialog"
+      :destroy-on-close="true"
+    >
+      <div class="mb-4">
+        <el-input
+          v-model="editFileContent"
+          type="textarea"
+          :rows="20"
+          class="!bg-zinc-800 !text-zinc-200 !border-zinc-700 font-mono"
+          placeholder="文件内容..."
+        />
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="editDialogVisible = false" class="!bg-transparent !text-white !border-zinc-700">取消</el-button>
+          <el-button type="primary" :loading="editSaving" @click="confirmEditSave" class="!bg-white !text-black !border-none hover:!bg-zinc-200">
+            保存
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getFiles, uploadFile, deleteFile, createFolder, moveFile, extractArchive } from '../api'
+import { getFiles, uploadFile, deleteFile, createFolder, moveFile, extractArchive, readFileContent, saveFileContent } from '../api'
 import {
   Top,
   Folder,
@@ -146,7 +177,8 @@ import {
   Download,
   Delete,
   Box,
-  Position
+  Position,
+  Edit
 } from '@element-plus/icons-vue'
 
 const loading = ref(false)
@@ -154,6 +186,13 @@ const currentPath = ref('/')
 const moveDialogVisible = ref(false)
 const moveTargetRow = ref<any>(null)
 const moveTargetPath = ref<string[]>([])
+
+// File edit
+const editDialogVisible = ref(false)
+const editFileName = ref('')
+const editFilePath = ref('')
+const editFileContent = ref('')
+const editSaving = ref(false)
 
 const folderProps = {
   lazy: true,
@@ -200,6 +239,12 @@ const isArchive = (name: string) => {
   return lower.endsWith('.zip') || lower.endsWith('.tar.gz') || lower.endsWith('.tgz')
 }
 
+const isEditable = (name: string) => {
+  const lower = name.toLowerCase()
+  const editableExts = ['.go', '.js', '.php', '.css', '.html', '.py', '.txt', '.md']
+  return editableExts.some(ext => lower.endsWith(ext))
+}
+
 const handleExtract = async (row: any) => {
   const filePath = currentPath.value === '/' ? `/${row.name}` : `${currentPath.value}/${row.name}`
   ElMessage.info(`正在解压 ${row.name}...`)
@@ -220,6 +265,44 @@ const openMoveDialog = (row: any) => {
   moveTargetRow.value = row
   moveTargetPath.value = []
   moveDialogVisible.value = true
+}
+
+const openEditDialog = async (row: any) => {
+  editFileName.value = row.name
+  editFilePath.value = currentPath.value === '/' ? `/${row.name}` : `${currentPath.value}/${row.name}`
+  editFileContent.value = ''
+  editDialogVisible.value = true
+  
+  try {
+    const res: any = await readFileContent(editFilePath.value)
+    if (res.code === 200) {
+      editFileContent.value = res.data || ''
+    } else {
+      ElMessage.error(res.message || '读取文件失败')
+    }
+  } catch (error) {
+    ElMessage.error('读取文件异常')
+  }
+}
+
+const confirmEditSave = async () => {
+  editSaving.value = true
+  try {
+    const res: any = await saveFileContent({
+      path: editFilePath.value,
+      content: editFileContent.value
+    })
+    if (res.code === 200) {
+      ElMessage.success('文件保存成功')
+      editDialogVisible.value = false
+    } else {
+      ElMessage.error(res.message || '保存失败')
+    }
+  } catch (error) {
+    ElMessage.error('保存异常')
+  } finally {
+    editSaving.value = false
+  }
 }
 
 const confirmMove = async () => {

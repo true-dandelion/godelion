@@ -56,6 +56,8 @@ export const extractArchive = (data: { path: string }) => {
 }
 
 export const readFile = (path: string) => request.get<any, ApiResponse>(`/storage/read?path=${encodeURIComponent(path)}`)
+export const readFileContent = (path: string) => request.get<any, ApiResponse>(`/storage/read?path=${encodeURIComponent(path)}`)
+export const saveFileContent = (data: { path: string, content: string }) => request.post<any, ApiResponse>('/storage/save', data)
 
 export const deleteFile = (path: string) => request.delete<any, ApiResponse>(`/storage/delete?path=${encodeURIComponent(path)}`)
 export const getDockerStatus = () => {

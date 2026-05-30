@@ -107,6 +107,7 @@ func main() {
 	storage.Post("/extract", controllers.ExtractArchive)
 	storage.Get("/list", controllers.ListFiles)
 	storage.Get("/read", controllers.ReadFileContent)
+	storage.Post("/save", controllers.SaveFileContent)
 	storage.Delete("/delete", controllers.DeleteFile)
 	storage.Get("/download", controllers.DownloadFile)
 
