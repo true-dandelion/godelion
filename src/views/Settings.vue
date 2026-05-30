@@ -433,13 +433,43 @@ const fetchSystemConfig = async () => {
   }
 }
 
-const handleUserSave = async () => {
-  if (!userForm.new_password) {
-    ElMessage.warning('请输入新密码')
+const handleUsernameSave = async () => {
+  if (!userForm.new_username) {
+    ElMessage.warning('请输入用户名')
     return
   }
+  if (userForm.new_username === userStore.user?.username) {
+    ElMessage.info('用户名未修改')
+    return
+  }
+
+  userSaving.value = true
+  try {
+    const usernameRes: any = await changeUsername({ new_username: userForm.new_username })
+    if (usernameRes.code === 200) {
+      ElMessage.success('用户名已修改')
+      ElMessage.info('请重新登录')
+      setTimeout(() => {
+        userStore.logout()
+        router.push('/login')
+      }, 1500)
+    } else {
+      ElMessage.error(usernameRes.message || '修改用户名失败')
+    }
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.error || '保存失败')
+  } finally {
+    userSaving.value = false
+  }
+}
+
+const handlePasswordSave = async () => {
   if (!userForm.current_password) {
     ElMessage.warning('请输入当前密码')
+    return
+  }
+  if (!userForm.new_password) {
+    ElMessage.warning('请输入新密码')
     return
   }
 
@@ -461,39 +491,22 @@ const handleUserSave = async () => {
 
   userSaving.value = true
   try {
-    if (userForm.new_username !== userStore.user?.username) {
-      const usernameRes: any = await changeUsername({ new_username: userForm.new_username })
-      if (usernameRes.code !== 200) {
-        ElMessage.error(usernameRes.message || '修改用户名失败')
-        userSaving.value = false
-        return
-      }
-    }
-
-    if (userForm.new_password) {
-      const passwordRes: any = await changePassword({
-        current_password: userForm.current_password,
-        new_password: userForm.new_password
-      })
-      if (passwordRes.code !== 200) {
-        ElMessage.error(passwordRes.message || '修改密码失败')
-        userSaving.value = false
-        return
-      }
-    }
-
-    ElMessage.success('用户设置已保存')
-    
-    if (userForm.new_password) {
-      ElMessage.info('密码已修改，请重新登录')
+    const passwordRes: any = await changePassword({
+      current_password: userForm.current_password,
+      new_password: userForm.new_password
+    })
+    if (passwordRes.code === 200) {
+      ElMessage.success('密码已修改')
+      ElMessage.info('请重新登录')
       setTimeout(() => {
         userStore.logout()
         router.push('/login')
       }, 1500)
+      userForm.current_password = ''
+      userForm.new_password = ''
+    } else {
+      ElMessage.error(passwordRes.message || '修改密码失败')
     }
-
-    userForm.current_password = ''
-    userForm.new_password = ''
   } catch (error: any) {
     ElMessage.error(error.response?.data?.error || '保存失败')
   } finally {
