@@ -31,7 +31,7 @@ service.interceptors.response.use(
     const { data } = response
     // If the custom code is not 0 or 200, it is judged as an error.
     if (data.code !== 0 && data.code !== 200) {
-      ElMessage.error('请求失败')
+      ElMessage.error(data.message || '请求失败')
       if (data.code === 401 || data.code === 403) {
         const userStore = useUserStore()
         userStore.logout()

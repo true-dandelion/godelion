@@ -27,11 +27,11 @@ func Login(c *fiber.Ctx) error {
 
 	var user models.User
 	if err := db.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": 401, "message": "用户名或密码错误"})
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"code": 401, "message": "用户名或密码错误"})
 	}
 
 	// Get session timeout from system config
