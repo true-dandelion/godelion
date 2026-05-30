@@ -578,7 +578,6 @@ const twoFADisablePassword = ref('')
 const disable2FAMethod = ref<'code' | 'password'>('code')
 const twoFASecret = ref('')
 const twoFAVerifyCode = ref('')
-const twoFADisableCode = ref('')
 
 const fetch2FAStatus = async () => {
   try {
