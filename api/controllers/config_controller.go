@@ -48,7 +48,7 @@ func GetSystemConfig(c *fiber.Ctx) error {
 func UpdateSystemConfig(c *fiber.Ctx) error {
 	var req models.SystemConfig
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
 	}
 
 	var config models.SystemConfig
@@ -118,22 +118,22 @@ func ChangeUsername(c *fiber.Ctx) error {
 	}
 	var req Req
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
 	}
 
 	if req.NewUsername == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Username cannot be empty"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "用户名不能为空"})
 	}
 
 	// Check if username already exists
 	var existingUser models.User
 	if db.DB.Where("username = ? AND id != ?", req.NewUsername, userIDStr).First(&existingUser).Error == nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Username already exists"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "用户名已存在"})
 	}
 
 	var user models.User
 	if db.DB.First(&user, "id = ?", userIDStr).Error != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "用户不存在"})
 	}
 
 	user.Username = req.NewUsername
@@ -162,18 +162,18 @@ func ChangePassword(c *fiber.Ctx) error {
 	}
 	var req Req
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
 	}
 
 	var user models.User
 	if db.DB.First(&user, "id = ?", userIDStr).Error != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "用户不存在"})
 	}
 
 	// Verify current password
 	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.CurrentPassword)) != nil {
 		log.Printf("Password mismatch for user %s: hash=%s input=%s", userIDStr, user.PasswordHash, req.CurrentPassword)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Current password is incorrect"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "当前密码错误"})
 	}
 
 	// Check password complexity if enabled
@@ -181,7 +181,7 @@ func ChangePassword(c *fiber.Ctx) error {
 	db.DB.First(&config)
 	if config.PasswordComplexity {
 		if len(req.NewPassword) < 8 || len(req.NewPassword) > 30 {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Password must be 8-30 characters"})
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "密码长度需为8-30位"})
 		}
 		hasLetter := regexp.MustCompile(`[a-zA-Z]`).MatchString(req.NewPassword)
 		hasDigit := regexp.MustCompile(`[0-9]`).MatchString(req.NewPassword)
@@ -191,7 +191,7 @@ func ChangePassword(c *fiber.Ctx) error {
 		if hasDigit { count++ }
 		if hasSpecial { count++ }
 		if count < 2 {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Password must contain at least two of: letters, numbers, special characters"})
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "密码必须包含字母、数字、特殊字符中的至少两项"})
 		}
 	}
 
@@ -199,7 +199,7 @@ func ChangePassword(c *fiber.Ctx) error {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
 		log.Printf("Error hashing password: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to hash password"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "密码加密失败"})
 	}
 
 	user.PasswordHash = string(hashedPassword)
@@ -239,14 +239,14 @@ func CreatePasskey(c *fiber.Ctx) error {
 	}
 	var req Req
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
 	}
 
 	// Check max 5 passkeys
 	var count int64
 	db.DB.Model(&models.Passkey{}).Where("user_id = ?", userID).Count(&count)
 	if count >= 5 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Maximum 5 passkeys allowed"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "最多允许5个密钥"})
 	}
 
 	passkey := models.Passkey{
@@ -274,7 +274,7 @@ func DeletePasskey(c *fiber.Ctx) error {
 
 	var passkey models.Passkey
 	if db.DB.First(&passkey, "id = ? AND user_id = ?", passkeyID, userID).Error != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Passkey not found"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "密钥不存在"})
 	}
 
 	db.DB.Delete(&passkey)
@@ -322,7 +322,7 @@ func Generate2FASecret(c *fiber.Ctx) error {
 		AccountName: user.Username,
 	})
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate 2FA secret"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "生成2FA密钥失败"})
 	}
 
 	// Store secret temporarily (not enabled until verified)
@@ -333,7 +333,7 @@ func Generate2FASecret(c *fiber.Ctx) error {
 	var buf bytes.Buffer
 	img, err := key.Image(200, 200)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate QR code"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "生成二维码失败"})
 	}
 	png.Encode(&buf, img)
 	qrBase64 := base64.StdEncoding.EncodeToString(buf.Bytes())
@@ -356,19 +356,20 @@ func Verify2FA(c *fiber.Ctx) error {
 	}
 	var req Req
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
 	}
 
 	var config models.SystemConfig
 	db.DB.First(&config)
 
 	if config.TwoFactorSecret == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Please generate a 2FA secret first"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请先生成2FA密钥"})
 	}
 
 	valid := totp.Validate(req.Code, config.TwoFactorSecret)
 	if !valid {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid verification code"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "验证码错误"})
+
 	}
 
 	// Enable 2FA
@@ -390,21 +391,21 @@ func Disable2FA(c *fiber.Ctx) error {
 	}
 	var req Req
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
 	}
 
 	var config models.SystemConfig
 	db.DB.First(&config)
 
 	if !config.TwoFactorEnabled {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "2FA is not enabled"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "两步验证未开启"})
 	}
 
 	// Verify code before disabling
 	if config.TwoFactorSecret != "" {
 		valid := totp.Validate(req.Code, config.TwoFactorSecret)
 		if !valid {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid verification code"})
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "验证码错误"})
 		}
 	}
 

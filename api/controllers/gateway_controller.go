@@ -25,7 +25,7 @@ func CreateGatewayRule(c *fiber.Ctx) error {
         }
 
         if err := c.BodyParser(&payload); err != nil {
-                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
+                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
         }
 
         // Validate port conflicts
@@ -54,7 +54,7 @@ func CreateGatewayRule(c *fiber.Ctx) error {
 	}
 
 	if err := db.DB.Create(&rule).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create rule"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "创建规则失败"})
 	}
 
 	services.UpdateProxyRule(rule)
@@ -69,7 +69,7 @@ func CreateGatewayRule(c *fiber.Ctx) error {
 func ListGatewayRules(c *fiber.Ctx) error {
 	var rules []models.GatewayRule
 	if err := db.DB.Find(&rules).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch rules"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "获取规则失败"})
 	}
 
 	// We will create a unified response format that includes both domain-based GatewayRules and HostPort mappings
@@ -160,12 +160,12 @@ func UpdateGatewayRule(c *fiber.Ctx) error {
         }
 
         if err := c.BodyParser(&payload); err != nil {
-                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
+                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
         }
 
         var rule models.GatewayRule
         if err := db.DB.First(&rule, "id = ?", id).Error; err != nil {
-                return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Rule not found"})
+                return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "规则不存在"})
         }
 
         // Validate port conflicts
@@ -194,7 +194,7 @@ func UpdateGatewayRule(c *fiber.Ctx) error {
         rule.TargetPort = payload.TargetPort
 
         if err := db.DB.Save(&rule).Error; err != nil {
-                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update rule"})
+                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "更新规则失败"})
         }
 
         // Apply proxy rule
@@ -213,11 +213,11 @@ func DeleteGatewayRule(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var rule models.GatewayRule
 	if err := db.DB.First(&rule, "id = ?", id).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Rule not found"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "规则不存在"})
 	}
 
 	if err := db.DB.Delete(&rule).Error; err != nil {
-                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete rule"})
+                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "删除规则失败"})
         }
 
         services.RemoveProxyRule(rule)

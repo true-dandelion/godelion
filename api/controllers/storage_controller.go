@@ -33,19 +33,19 @@ func UploadFile(c *fiber.Ctx) error {
 
 	file, err := c.FormFile("file")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "File upload failed"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "文件上传失败"})
 	}
 
 	destPath, err := validatePath(userID, filepath.Join(path, file.Filename))
 	if err != nil {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "访问被拒绝"})
 	}
 
 	// Ensure user directory exists
 	os.MkdirAll(filepath.Dir(destPath), 0755)
 
 	if err := c.SaveFile(file, destPath); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save file"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "保存文件失败"})
 	}
 
 	LogAction(c, "Upload", "File", "Uploaded file: "+file.Filename+" to "+path)
@@ -59,7 +59,7 @@ func ListFiles(c *fiber.Ctx) error {
 
 	dirPath, err := validatePath(userID, path)
 	if err != nil {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "访问被拒绝"})
 	}
 
 	// Create user dir if not exists
@@ -67,7 +67,7 @@ func ListFiles(c *fiber.Ctx) error {
 
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to read directory"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "读取目录失败"})
 	}
 
 	type FileInfo struct {
@@ -98,16 +98,16 @@ func DeleteFile(c *fiber.Ctx) error {
 	path := c.Query("path")
 
 	if path == "" || path == "/" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot delete root"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "无法删除根目录"})
 	}
 
 	targetPath, err := validatePath(userID, path)
 	if err != nil {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "访问被拒绝"})
 	}
 
 	if err := os.RemoveAll(targetPath); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "删除失败"})
 	}
 
 	LogAction(c, "Delete", "File", "Deleted file or folder: "+path)
@@ -121,7 +121,7 @@ func DownloadFile(c *fiber.Ctx) error {
 
 	targetPath, err := validatePath(userID, path)
 	if err != nil {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "访问被拒绝"})
 	}
 
 	return c.SendFile(targetPath)
@@ -133,12 +133,12 @@ func ReadFileContent(c *fiber.Ctx) error {
 
 	targetPath, err := validatePath(userID, path)
 	if err != nil {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "访问被拒绝"})
 	}
 
 	content, err := os.ReadFile(targetPath)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "File not found or cannot be read"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "文件不存在或无法读取"})
 	}
 
 	return c.JSON(fiber.Map{
@@ -156,20 +156,20 @@ func CreateFolder(c *fiber.Ctx) error {
 	}
 	var req Req
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
 	}
 
 	if req.Name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Folder name is required"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请输入文件夹名称"})
 	}
 
 	destPath, err := validatePath(userID, filepath.Join(path, req.Name))
 	if err != nil {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "访问被拒绝"})
 	}
 
 	if err := os.MkdirAll(destPath, 0755); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create folder"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "创建文件夹失败"})
 	}
 
 	LogAction(c, "Create", "Folder", "Created folder: "+destPath)
@@ -186,17 +186,17 @@ func MoveFile(c *fiber.Ctx) error {
 	}
 	var req Req
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
 	}
 
 	srcPath, err1 := validatePath(userID, req.SourcePath)
 	dstPath, err2 := validatePath(userID, req.TargetPath)
 	if err1 != nil || err2 != nil {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "访问被拒绝"})
 	}
 
 	if err := os.Rename(srcPath, dstPath); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to move file or folder"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "移动失败"})
 	}
 
 	return c.JSON(fiber.Map{"code": 200, "message": "Moved successfully"})
@@ -210,12 +210,12 @@ func ExtractArchive(c *fiber.Ctx) error {
 	}
 	var req Req
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
 	}
 
 	targetPath, err := validatePath(userID, req.Path)
 	if err != nil {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "访问被拒绝"})
 	}
 
 	dir := filepath.Dir(targetPath)
@@ -227,13 +227,13 @@ func ExtractArchive(c *fiber.Ctx) error {
 	} else if strings.HasSuffix(lowerPath, ".tar.gz") || strings.HasSuffix(lowerPath, ".tgz") {
 		cmd = exec.Command("tar", "-xzf", targetPath, "-C", dir)
 	} else {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Unsupported archive format"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "不支持的压缩格式"})
 	}
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Extraction failed",
+			"error":   "解压失败",
 			"details": string(output),
 		})
 	}
@@ -250,16 +250,16 @@ func SaveFileContent(c *fiber.Ctx) error {
 	}
 	var req Req
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
 	}
 
 	targetPath, err := validatePath(userID, req.Path)
 	if err != nil {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "访问被拒绝"})
 	}
 
 	if err := os.WriteFile(targetPath, []byte(req.Content), 0644); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save file"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "保存文件失败"})
 	}
 
 	return c.JSON(fiber.Map{

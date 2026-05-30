@@ -160,7 +160,7 @@ func UpdateDockerConfig(c *fiber.Ctx) error {
 		Config string `json:"config"`
 	}
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
 	}
 
 	// Validate JSON format

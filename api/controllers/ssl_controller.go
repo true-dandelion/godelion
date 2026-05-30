@@ -18,7 +18,7 @@ import (
 func ListSSLCerts(c *fiber.Ctx) error {
         var certs []models.SSLCertificate
         if err := db.DB.Select("id", "domain", "issued_at", "expires_at", "created_at", "updated_at").Find(&certs).Error; err != nil {
-                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch certificates"})
+                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "获取证书失败"})
         }
 
         return c.JSON(fiber.Map{
@@ -52,23 +52,23 @@ func CreateSSLCert(c *fiber.Ctx) error {
         }
 
         if err := c.BodyParser(&payload); err != nil {
-                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
+                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
         }
 
         if payload.Domain == "" || payload.CertContent == "" || payload.KeyContent == "" {
-                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Domain, Cert Content and Key Content are required"})
+                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "域名、证书内容和密钥内容为必填项"})
         }
 
         // Validate the certificate pair
         _, err := tls.X509KeyPair([]byte(payload.CertContent), []byte(payload.KeyContent))
         if err != nil {
-                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid certificate or private key: " + err.Error()})
+                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "无效的证书或私钥: " + err.Error()})
         }
 
         // Extract dates
         issuedAt, expiresAt, err := getCertDates([]byte(payload.CertContent))
         if err != nil {
-                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Could not parse certificate dates: " + err.Error()})
+                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "无法解析证书日期: " + err.Error()})
         }
 
         // Check if domain already has a cert
@@ -98,7 +98,7 @@ func CreateSSLCert(c *fiber.Ctx) error {
         }
 
         if err := db.DB.Create(&cert).Error; err != nil {
-                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save certificate"})
+                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "保存证书失败"})
         }
 
         LogAction(c, "Create", "SSL", "Uploaded SSL cert for: "+cert.Domain)
@@ -115,11 +115,11 @@ func DeleteSSLCert(c *fiber.Ctx) error {
         id := c.Params("id")
         var cert models.SSLCertificate
         if err := db.DB.First(&cert, "id = ?", id).Error; err != nil {
-                return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Certificate not found"})
+                return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "证书不存在"})
         }
 
         if err := db.DB.Delete(&cert).Error; err != nil {
-                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete certificate"})
+                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "删除证书失败"})
         }
 
         LogAction(c, "Delete", "SSL", "Deleted SSL cert for: "+cert.Domain)

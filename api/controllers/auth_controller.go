@@ -170,7 +170,7 @@ func GetProfile(c *fiber.Ctx) error {
 	userIDStr := fmt.Sprintf("%v", userID)
 	var user models.User
 	if err := db.DB.Where("id = ?", userIDStr).First(&user).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "用户不存在"})
 	}
 
 	return c.JSON(fiber.Map{
@@ -189,7 +189,7 @@ func UpdateProfile(c *fiber.Ctx) error {
 	userIDStr := fmt.Sprintf("%v", userID)
 	var user models.User
 	if err := db.DB.Where("id = ?", userIDStr).First(&user).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "用户不存在"})
 	}
 
 	var req struct {
@@ -199,14 +199,14 @@ func UpdateProfile(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
 	}
 
 	if req.Username != "" {
 		// Check if username already exists for another user
 		var existing models.User
 		if err := db.DB.Where("username = ? AND id != ?", req.Username, userIDStr).First(&existing).Error; err == nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Username already exists"})
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "用户名已存在"})
 		}
 		user.Username = req.Username
 	}
@@ -221,7 +221,7 @@ func UpdateProfile(c *fiber.Ctx) error {
 	}
 
 	if err := db.DB.Save(&user).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update profile"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "更新用户信息失败"})
 	}
 
 	return c.JSON(fiber.Map{

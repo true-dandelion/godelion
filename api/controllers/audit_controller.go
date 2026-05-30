@@ -38,7 +38,7 @@ func ListAuditLogs(c *fiber.Ctx) error {
         var logs []models.AuditLog
         // Get the latest 50 logs
         if err := db.DB.Order("created_at desc").Limit(50).Find(&logs).Error; err != nil {
-                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch audit logs"})
+                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "获取审计日志失败"})
         }
 
         return c.JSON(fiber.Map{

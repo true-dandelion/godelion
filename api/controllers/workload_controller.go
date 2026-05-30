@@ -43,7 +43,7 @@ func CreateWorkload(c *fiber.Ctx) error {
 		ResourceLimits string `json:"resource_limits"`
 	}
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
 	}
 
 	userID := fmt.Sprintf("%v", c.Locals("user_id"))
@@ -136,7 +136,7 @@ func CreateWorkload(c *fiber.Ctx) error {
 	}
 
 	if err := db.DB.Create(&dbContainer).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save to db"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "保存失败"})
 	}
 
 	LogAction(c, "Deploy", "Container", "Deployed container: "+req.Name+" (Type: "+req.RuntimeType+")")
@@ -356,7 +356,7 @@ func ListWorkloads(c *fiber.Ctx) error {
 	}
 
 	if err := query.Find(&workloads).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch workloads"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "获取工作负载失败"})
 	}
 
 	for i, w := range workloads {
@@ -385,14 +385,16 @@ func StartWorkload(c *fiber.Ctx) error {
         id := c.Params("id")
         var w models.Container
         if err := db.DB.First(&w, "id = ?", id).Error; err != nil {
-                return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Container not found"})
+                return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "容器不存在"})
         }
         if w.DockerID == "" {
-                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Container is still creating"})
+                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "容器正在创建中"})
+
         }
 
         if err := services.StartContainer(c.Context(), w.DockerID); err != nil {
                 return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+
         }
 
         // Add a start log entry to action logs
@@ -412,14 +414,16 @@ func StopWorkload(c *fiber.Ctx) error {
         id := c.Params("id")
         var w models.Container
         if err := db.DB.First(&w, "id = ?", id).Error; err != nil {
-                return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Container not found"})
+                return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "容器不存在"})
         }
         if w.DockerID == "" {
-                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Container is still creating"})
+                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "容器正在创建中"})
+
         }
 
         if err := services.StopContainer(c.Context(), w.DockerID); err != nil {
                 return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+
         }
 
         // Add a stop log entry to action logs
@@ -439,7 +443,7 @@ func GetWorkloadLogs(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var w models.Container
 	if err := db.DB.First(&w, "id = ?", id).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Container not found"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "容器不存在"})
 	}
 	
 	// If DockerID is empty, Docker container doesn't exist yet (still deploying or failed)
@@ -486,7 +490,7 @@ func DeleteWorkload(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var w models.Container
 	if err := db.DB.First(&w, "id = ?", id).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Container not found"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "容器不存在"})
 	}
 
 	if w.DockerID != "" {
@@ -495,7 +499,7 @@ func DeleteWorkload(c *fiber.Ctx) error {
 	}
 
 	if err := db.DB.Delete(&w).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete db record"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "删除记录失败"})
 	}
 
 	// Stop proxy before deleting
@@ -516,12 +520,12 @@ func UpdateWorkload(c *fiber.Ctx) error {
 		} `json:"ports"`
 	}
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
 	}
 
 	var w models.Container
 	if err := db.DB.First(&w, "id = ?", id).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Container not found"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "容器不存在"})
 	}
 
 	if req.Name != "" {
@@ -541,7 +545,7 @@ func UpdateWorkload(c *fiber.Ctx) error {
 	}
 
 	if err := db.DB.Save(&w).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update db record"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "更新记录失败"})
 	}
 
 	services.StartProxiesForContainer(w)
