@@ -7,6 +7,7 @@ export interface ApiResponse<T = any> {
 }
 
 export const login = (data: any) => request.post<any, ApiResponse>('/auth/login', data)
+export const verifyLogin2FA = (data: { temp_token: string, code: string }) => request.post<any, ApiResponse>('/auth/verify-2fa', data)
 
 // User Profile
 export const getProfile = () => request.get<any, ApiResponse>('/user/profile')

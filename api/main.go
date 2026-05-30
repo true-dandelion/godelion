@@ -43,6 +43,7 @@ func main() {
 
 	// Auth (no access control for login)
         api.Post("/auth/login", controllers.Login)
+        api.Post("/auth/verify-2fa", controllers.VerifyLogin2FA)
 
 	// Access control middleware (IP whitelist + domain binding)
 	api.Use(middleware.AccessControl())

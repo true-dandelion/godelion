@@ -18,7 +18,9 @@
           <p class="text-zinc-400 mt-2 text-sm">企业级安全管控与中继网关</p>
         </div>
 
+        <!-- 登录表单 -->
         <el-form 
+          v-if="!require2FA"
           ref="loginFormRef"
           :model="loginForm"
           :rules="loginRules"
@@ -55,6 +57,41 @@
             进入控制台
           </el-button>
         </el-form>
+
+        <!-- 2FA 验证码输入 -->
+        <div v-else class="space-y-6">
+          <div class="text-center">
+            <div class="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-cyan-500/10 border border-cyan-500/20 mb-4">
+              <el-icon :size="28" class="text-cyan-400"><Key /></el-icon>
+            </div>
+            <h2 class="text-xl font-semibold text-white">两步验证</h2>
+            <p class="text-zinc-500 text-sm mt-2">请输入 Google Authenticator 中的验证码</p>
+          </div>
+
+          <el-input
+            v-model="twoFACode"
+            placeholder="请输入 6 位验证码"
+            size="large"
+            maxlength="6"
+            class="!bg-transparent text-center text-2xl tracking-[0.5em] font-mono"
+            @keyup.enter="handleVerify2FA"
+          />
+
+          <el-button 
+            type="primary" 
+            class="w-full h-12 text-base font-medium !bg-cyan-500 !text-white hover:!bg-cyan-600 border-none rounded-lg transition-colors"
+            :loading="verifying2FA"
+            @click="handleVerify2FA"
+          >
+            验证
+          </el-button>
+
+          <div class="text-center">
+            <el-button link class="!text-zinc-500 hover:!text-zinc-300 text-sm" @click="cancel2FA">
+              返回登录
+            </el-button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -64,15 +101,19 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Lock, Platform } from '@element-plus/icons-vue'
+import { User, Lock, Platform, Key } from '@element-plus/icons-vue'
 import { useUserStore } from '../store/user'
-import { login } from '../api'
+import { login, verifyLogin2FA } from '../api'
 
 const router = useRouter()
 const userStore = useUserStore()
 
 const loginFormRef = ref()
 const loading = ref(false)
+const require2FA = ref(false)
+const tempToken = ref('')
+const twoFACode = ref('')
+const verifying2FA = ref(false)
 
 const loginForm = reactive({
   username: '',
@@ -91,13 +132,20 @@ const handleLogin = async () => {
     if (valid) {
       loading.value = true
       try {
-        const res = await login({ username: loginForm.username, password: loginForm.password })
+        const res: any = await login({ username: loginForm.username, password: loginForm.password })
         if (res.code === 200) {
-          userStore.setToken(res.data.token)
-          userStore.setDelionId(res.data.d_delion_id)
-          userStore.setUserInfo(res.data.user)
-          ElMessage.success('登录成功')
-          router.push('/')
+          if (res.data.require_2fa) {
+            // 2FA enabled: show verification code input
+            tempToken.value = res.data.temp_token
+            require2FA.value = true
+          } else {
+            // Normal login
+            userStore.setToken(res.data.token)
+            userStore.setDelionId(res.data.d_delion_id)
+            userStore.setUserInfo(res.data.user)
+            ElMessage.success('登录成功')
+            router.push('/')
+          }
         }
       } catch {
       } finally {
@@ -105,6 +153,42 @@ const handleLogin = async () => {
       }
     }
   })
+}
+
+const handleVerify2FA = async () => {
+  if (!twoFACode.value || twoFACode.value.length !== 6) {
+    ElMessage.warning('请输入 6 位验证码')
+    return
+  }
+
+  verifying2FA.value = true
+  try {
+    const res: any = await verifyLogin2FA({
+      temp_token: tempToken.value,
+      code: twoFACode.value
+    })
+    if (res.code === 200) {
+      userStore.setToken(res.data.token)
+      userStore.setDelionId(res.data.d_delion_id)
+      userStore.setUserInfo(res.data.user)
+      ElMessage.success('登录成功')
+      router.push('/')
+    }
+  } catch {
+    // Verification failed: clear state
+    tempToken.value = ''
+    twoFACode.value = ''
+    require2FA.value = false
+    userStore.logout()
+  } finally {
+    verifying2FA.value = false
+  }
+}
+
+const cancel2FA = () => {
+  require2FA.value = false
+  tempToken.value = ''
+  twoFACode.value = ''
 }
 </script>
 
