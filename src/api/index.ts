@@ -73,6 +73,7 @@ export const startDocker = () => request.post('/system/docker/start')
 export const stopDocker = () => request.post('/system/docker/stop')
 export const restartDocker = () => request.post<any, ApiResponse>('/system/docker/restart')
 export const getDockerConfig = () => request.get<any, ApiResponse>('/system/docker/config')
+export const getSystemHealth = () => request.get<any, ApiResponse>('/system/health')
 export const updateDockerConfig = (config: string) => request.post<any, ApiResponse>('/system/docker/config', { config })
 
 export const getMetrics = () => request.get<any, ApiResponse>('/metrics')

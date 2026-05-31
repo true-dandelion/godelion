@@ -4,7 +4,7 @@ import { useUserStore } from '../store/user'
 import router from '../router'
 
 const service = axios.create({
-  baseURL: 'http://localhost:8080/sys/v1',
+  baseURL: '/sys/v1',
   timeout: 60000 // 增加默认超时时间到 60 秒
 })
 

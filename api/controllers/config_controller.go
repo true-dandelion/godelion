@@ -11,6 +11,7 @@ import (
 	"godelion/db"
 	"godelion/middleware"
 	"godelion/models"
+	"godelion/services"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/pquerna/otp/totp"
@@ -27,9 +28,8 @@ func GetSystemConfig(c *fiber.Ctx) error {
 		config = models.SystemConfig{
 			PanelName:          "Godelion",
 			SessionTimeout:     86400,
+			Port:               9960,
 			EnableHTTPS:        false,
-			HTTPSPort:          443,
-			HTTPPort:           8080,
 			PasswordExpiryDays: 0,
 			PasswordComplexity: false,
 			TwoFactorEnabled:   false,
@@ -59,34 +59,21 @@ func UpdateSystemConfig(c *fiber.Ctx) error {
 		config = req
 		db.DB.Create(&config)
 	} else {
-		// Partial update: only update non-zero fields
+		// Update fields - allow empty values for fields that can be cleared
 		if req.PanelName != "" {
 			config.PanelName = req.PanelName
 		}
 		if req.SessionTimeout > 0 {
 			config.SessionTimeout = req.SessionTimeout
 		}
-		if req.EnableHTTPS {
-			config.EnableHTTPS = req.EnableHTTPS
+		if req.Port > 0 {
+			config.Port = req.Port
 		}
-		if req.HTTPSPort > 0 {
-			config.HTTPSPort = req.HTTPSPort
-		}
-		if req.HTTPPort > 0 {
-			config.HTTPPort = req.HTTPPort
-		}
-		if req.SecureEntrypoint != "" {
-			config.SecureEntrypoint = req.SecureEntrypoint
-		}
-		if req.AuthorizedIPs != "" {
-			config.AuthorizedIPs = req.AuthorizedIPs
-		}
-		if req.DomainBinding != "" {
-			config.DomainBinding = req.DomainBinding
-		}
-		if req.PasswordExpiryDays > 0 || req.PasswordComplexity || req.TwoFactorEnabled {
-			// These fields can be 0, handle separately
-		}
+		config.EnableHTTPS = req.EnableHTTPS
+		config.PanelSSLID = req.PanelSSLID
+		config.SecureEntrypoint = req.SecureEntrypoint // allow empty to clear
+		config.AuthorizedIPs = req.AuthorizedIPs       // allow empty to clear
+		config.DomainBinding = req.DomainBinding        // allow empty to clear
 		config.PasswordExpiryDays = req.PasswordExpiryDays
 		config.PasswordComplexity = req.PasswordComplexity
 		config.TwoFactorEnabled = req.TwoFactorEnabled
@@ -94,7 +81,42 @@ func UpdateSystemConfig(c *fiber.Ctx) error {
 	}
 
 	// Update access control cache
-	middleware.SetAccessConfig(config.DomainBinding, config.AuthorizedIPs)
+	middleware.SetAccessConfig(config.DomainBinding, config.AuthorizedIPs, config.SecureEntrypoint)
+
+	// Check if config changed and trigger restart
+	needRestart := false
+
+	// Port changed
+	newPortStr := fmt.Sprintf("%d", config.Port)
+	if newPortStr != services.SystemPort {
+		log.Printf("[Config] Port changed from %s to %s", services.SystemPort, newPortStr)
+		needRestart = true
+	}
+
+	// HTTPS changed
+	if config.EnableHTTPS != services.EnableHTTPS {
+		log.Printf("[Config] HTTPS changed from %v to %v", services.EnableHTTPS, config.EnableHTTPS)
+		needRestart = true
+	}
+
+	// Certificate changed
+	if config.EnableHTTPS && config.PanelSSLID != "" {
+		var cert models.SSLCertificate
+		if err := db.DB.First(&cert, "id = ?", config.PanelSSLID).Error; err == nil {
+			if cert.CertContent != services.CertContent || cert.KeyContent != services.KeyContent {
+				log.Println("[Config] SSL certificate changed")
+				needRestart = true
+			}
+		}
+	}
+
+	if needRestart {
+		log.Println("[Config] Triggering restart...")
+		select {
+		case services.RestartChan <- "config_changed":
+		default:
+		}
+	}
 
 	LogAction(c, "Update", "SystemConfig", "Updated system configuration")
 

@@ -45,7 +45,7 @@ func AuthRequired() fiber.Handler {
 		// Check if d_delion_id exists in session store
 		sess, exists := session.DelionSessionStore[delionId]
 		if !exists {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid d_delion_id"})
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "未登录！"})
 		}
 
 		// Check if session expired (7 days)

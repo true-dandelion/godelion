@@ -310,7 +310,7 @@
           <div v-for="(port, index) in deployForm.ports" :key="index" class="flex gap-2 mb-2">
             <el-input v-model="port.host" placeholder="主机端口" class="flex-1" />
             <span class="text-zinc-500 pt-1">:</span>
-            <el-input v-model="port.container" :placeholder="getDefaultContainerPortPlaceholder(deployForm.runtimeType)" class="flex-1" />
+            <el-input v-model="port.container" placeholder="容器端口" class="flex-1" />
             <el-button type="danger" link @click="removePort(index)">
               <el-icon><Remove /></el-icon>
             </el-button>
@@ -474,11 +474,11 @@ const deployForm = reactive({
 
 // 运行时类型默认配置
 const runtimeDefaults = {
-	nodejs: { image: 'node:24-alpine', containerPort: '3000' },
-	python: { image: 'python:3.12-alpine', containerPort: '5000' },
-	go: { image: 'golang:1.22-alpine', containerPort: '8080' },
-	php: { image: 'php:8.3-apache', containerPort: '80' },
-	static: { image: 'nginx:alpine', containerPort: '80' }
+	nodejs: { image: 'node:24-alpine' },
+	python: { image: 'python:3.12-alpine' },
+	go: { image: 'golang:1.22-alpine' },
+	php: { image: 'php:8.3-apache' },
+	static: { image: 'nginx:alpine' }
 }
 
 // 获取默认镜像占位符
@@ -488,21 +488,17 @@ const getDefaultImagePlaceholder = (type: string) => {
 
 // 获取默认容器端口占位符
 const getDefaultContainerPortPlaceholder = (type: string) => {
-	return runtimeDefaults[type as keyof typeof runtimeDefaults]?.containerPort || ''
+	return ''
 }
 
 // 处理运行时类型变更
 const handleRuntimeTypeChange = (type: string) => {
 	// 设置默认镜像
 	deployForm.image = getDefaultImagePlaceholder(type)
-	// 设置默认端口
-	if (deployForm.ports.length > 0 && deployForm.ports[0].container === '') {
-		deployForm.ports[0].container = getDefaultContainerPortPlaceholder(type)
-	}
 	// 重置其他字段
 	deployForm.startCommand = ''
-	deployForm.availableScripts = []
-	deployForm.hasPackageJson = true
+	availableScripts.value = []
+	hasPackageJson.value = true
 }
 
 const availableScripts = ref<string[]>([])
@@ -601,14 +597,6 @@ const folderProps = {
       resolve([])
     }
   }
-}
-
-const addVolume = () => {
-  deployForm.volumes.push({ host: [], container: '' })
-}
-
-const removeVolume = (index: number) => {
-  deployForm.volumes.splice(index, 1)
 }
 
 const containers = ref<any[]>([])

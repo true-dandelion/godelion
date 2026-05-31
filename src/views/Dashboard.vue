@@ -151,26 +151,65 @@
             <span class="text-lg font-semibold text-white">节点健康状态</span>
           </template>
           <div class="space-y-4">
+            <!-- Docker Daemon -->
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
-                <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                <div class="w-2 h-2 rounded-full" :class="healthData.docker?.status === 'online' ? 'bg-green-500' : 'bg-red-500'"></div>
                 <span class="text-zinc-300 text-sm">Docker Daemon</span>
               </div>
-              <span class="text-xs text-green-500 bg-green-500/10 px-2 py-1 rounded">在线</span>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-zinc-500">{{ healthData.docker?.running ?? 0 }}/{{ healthData.docker?.total ?? 0 }} 容器</span>
+                <span class="text-xs px-2 py-1 rounded"
+                  :class="healthData.docker?.status === 'online' ? 'text-green-500 bg-green-500/10' : 'text-red-500 bg-red-500/10'">
+                  {{ healthData.docker?.message || '检测中...' }}
+                </span>
+              </div>
             </div>
+            <!-- SSL 证书 -->
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
-                <div class="w-2 h-2 rounded-full bg-green-500"></div>
-                <span class="text-zinc-300 text-sm">SQLite Database</span>
+                <div class="w-2 h-2 rounded-full"
+                  :class="{
+                    'bg-green-500': healthData.ssl?.status === 'normal',
+                    'bg-yellow-500': healthData.ssl?.status === 'warning',
+                    'bg-red-500': healthData.ssl?.status === 'error'
+                  }"></div>
+                <span class="text-zinc-300 text-sm">SSL 证书</span>
               </div>
-              <span class="text-xs text-green-500 bg-green-500/10 px-2 py-1 rounded">正常</span>
+              <div class="flex items-center gap-2">
+                <span v-if="healthData.ssl?.total > 0" class="text-xs text-zinc-500">{{ healthData.ssl.total }} 张证书</span>
+                <span class="text-xs px-2 py-1 rounded"
+                  :class="{
+                    'text-green-500 bg-green-500/10': healthData.ssl?.status === 'normal',
+                    'text-yellow-500 bg-yellow-500/10': healthData.ssl?.status === 'warning',
+                    'text-red-500 bg-red-500/10': healthData.ssl?.status === 'error'
+                  }">
+                  {{ healthData.ssl?.message || '检测中...' }}
+                </span>
+              </div>
             </div>
+            <!-- 网关规则 -->
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
-                <div class="w-2 h-2 rounded-full bg-green-500"></div>
-                <span class="text-zinc-300 text-sm">Godelion Proxy</span>
+                <div class="w-2 h-2 rounded-full"
+                  :class="{
+                    'bg-green-500': healthData.gateway?.status === 'normal',
+                    'bg-yellow-500': healthData.gateway?.status === 'warning',
+                    'bg-red-500': healthData.gateway?.status === 'error'
+                  }"></div>
+                <span class="text-zinc-300 text-sm">网关规则</span>
               </div>
-              <span class="text-xs text-green-500 bg-green-500/10 px-2 py-1 rounded">在线</span>
+              <div class="flex items-center gap-2">
+                <span v-if="healthData.gateway?.total > 0" class="text-xs text-zinc-500">{{ healthData.gateway.total }} 条规则</span>
+                <span class="text-xs px-2 py-1 rounded"
+                  :class="{
+                    'text-green-500 bg-green-500/10': healthData.gateway?.status === 'normal',
+                    'text-yellow-500 bg-yellow-500/10': healthData.gateway?.status === 'warning',
+                    'text-red-500 bg-red-500/10': healthData.gateway?.status === 'error'
+                  }">
+                  {{ healthData.gateway?.message || '检测中...' }}
+                </span>
+              </div>
             </div>
           </div>
         </el-card>
@@ -182,7 +221,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getWorkloads, getGateways, getAuditLogs } from '../api'
+import { getWorkloads, getGateways, getAuditLogs, getSystemHealth } from '../api'
 import {
   Connection,
   Cpu,
@@ -208,11 +247,18 @@ const sysLoad = ref((Math.random() * 2 + 0.5).toFixed(2))
 
 const activities = ref<any[]>([])
 
+const healthData = ref<any>({
+  docker: { status: 'offline', message: '检测中...' },
+  ssl: { status: 'normal', message: '检测中...' },
+  gateway: { status: 'normal', message: '检测中...' }
+})
+
 const fetchDashboardData = async () => {
   try {
-    const [resW, resG] = await Promise.all([
+    const [resW, resG, resH] = await Promise.all([
       getWorkloads(),
-      getGateways()
+      getGateways(),
+      getSystemHealth()
     ])
 
     if (resW.code === 200) {
@@ -234,6 +280,10 @@ const fetchDashboardData = async () => {
         }
         return false
       }).length
+    }
+
+    if (resH.code === 200 && resH.data) {
+      healthData.value = resH.data
     }
   } catch (error) {
     console.error('Failed to fetch dashboard data', error)

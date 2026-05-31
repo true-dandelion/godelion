@@ -105,8 +105,28 @@ func UpdateProxyRule(rule models.GatewayRule) {
 	defer proxyMutex.Unlock()
 
 	targets := []string{}
-	
-	// Support both legacy TargetPort and new TargetURLs
+
+	// Handle redirect rules
+	if rule.RuleType == "redirect" && rule.RedirectURL != "" {
+		redirectTarget := fmt.Sprintf("@redirect:%d:%s", rule.RedirectCode, rule.RedirectURL)
+		if rule.HTTPPort != "" {
+			key := rule.Domain + ":" + rule.HTTPPort
+			proxyTargetPools[key] = &TargetPool{Targets: []string{redirectTarget}, Current: 0}
+			if rule.HTTPPort != SystemPort {
+				EnsureListenerRunning(rule.HTTPPort)
+			}
+		}
+		if rule.TLSEnabled && rule.HTTPSPort != "" {
+			key := rule.Domain + ":" + rule.HTTPSPort
+			proxyTargetPools[key] = &TargetPool{Targets: []string{redirectTarget}, Current: 0}
+			if rule.HTTPSPort != SystemPort {
+				EnsureListenerRunning(rule.HTTPSPort)
+			}
+		}
+		return
+	}
+
+	// Handle proxy rules
 	if rule.TargetURLs != "" {
 		for _, t := range strings.Split(rule.TargetURLs, ",") {
 			t = strings.TrimSpace(t)
@@ -115,38 +135,32 @@ func UpdateProxyRule(rule models.GatewayRule) {
 			}
 		}
 	}
-	
-	// If container target is specified, we resolve it dynamically.
-	// We can inject a special target marker that ProxyHandler will resolve at runtime.
+
 	if rule.ContainerID != "" && rule.TargetPort > 0 {
 		targets = append(targets, fmt.Sprintf("@container:%s:%d", rule.ContainerID, rule.TargetPort))
 	} else if rule.TargetPort > 0 && rule.TargetURLs == "" {
-		// Legacy mapping fallback
 		targets = append(targets, fmt.Sprintf("127.0.0.1:%d", rule.TargetPort))
 	}
 
-	// Ensure dynamic listeners are started for the new ListenPorts field
-	if rule.ListenPorts != "" {
-		for _, portStr := range strings.Split(rule.ListenPorts, ",") {
-			portStr = strings.TrimSpace(portStr)
-			if portStr != "" {
-				// Key by domain:port to allow same domain on different ports
-				key := rule.Domain + ":" + portStr
-				proxyTargetPools[key] = &TargetPool{
-					Targets: targets,
-					Current: 0,
-				}
-				// We only ensure dynamic listener if it's not the main web UI port
-				if portStr != SystemPort {
-					EnsureListenerRunning(portStr)
-				}
-			}
+	// Register HTTP port
+	if rule.HTTPPort != "" {
+		key := rule.Domain + ":" + rule.HTTPPort
+		if rule.TLSEnabled && rule.HTTPSPort != "" {
+			proxyTargetPools[key] = &TargetPool{Targets: []string{"@redirect:https"}, Current: 0}
+		} else {
+			proxyTargetPools[key] = &TargetPool{Targets: targets, Current: 0}
 		}
-	} else {
-		// Fallback for rules without ListenPorts
-		proxyTargetPools[rule.Domain+":80"] = &TargetPool{
-			Targets: targets,
-			Current: 0,
+		if rule.HTTPPort != SystemPort {
+			EnsureListenerRunning(rule.HTTPPort)
+		}
+	}
+
+	// Register HTTPS port
+	if rule.TLSEnabled && rule.HTTPSPort != "" {
+		key := rule.Domain + ":" + rule.HTTPSPort
+		proxyTargetPools[key] = &TargetPool{Targets: targets, Current: 0}
+		if rule.HTTPSPort != SystemPort {
+			EnsureListenerRunning(rule.HTTPSPort)
 		}
 	}
 }
@@ -154,17 +168,14 @@ func UpdateProxyRule(rule models.GatewayRule) {
 func RemoveProxyRule(rule models.GatewayRule) {
 	proxyMutex.Lock()
 	defer proxyMutex.Unlock()
-	if rule.ListenPorts != "" {
-		for _, portStr := range strings.Split(rule.ListenPorts, ",") {
-			portStr = strings.TrimSpace(portStr)
-			if portStr != "" {
-				delete(proxyTargetPools, rule.Domain+":"+portStr)
-				go CheckAndStopUnusedListener(portStr)
-			}
-		}
-	} else {
-		delete(proxyTargetPools, rule.Domain+":80")
-		go CheckAndStopUnusedListener("80")
+
+	if rule.HTTPPort != "" {
+		delete(proxyTargetPools, rule.Domain+":"+rule.HTTPPort)
+		go CheckAndStopUnusedListener(rule.HTTPPort)
+	}
+	if rule.HTTPSPort != "" {
+		delete(proxyTargetPools, rule.Domain+":"+rule.HTTPSPort)
+		go CheckAndStopUnusedListener(rule.HTTPSPort)
 	}
 }
 
@@ -210,6 +221,41 @@ func ProxyHandler(c *fiber.Ctx) error {
         targetStr := pool.Next()
         if targetStr == "" {
                 return c.Status(502).Type("html").SendString(getNiceErrorPage("502", host))
+        }
+
+        // Handle HTTP→HTTPS redirect
+        if targetStr == "@redirect:https" {
+                httpsPort := "443"
+                proxyMutex.RLock()
+                for k := range proxyTargetPools {
+                        if strings.HasPrefix(k, host+":") && k != key {
+                                parts := strings.SplitN(k, ":", 2)
+                                if len(parts) == 2 {
+                                        httpsPort = parts[1]
+                                }
+                                break
+                        }
+                }
+                proxyMutex.RUnlock()
+
+                redirectURL := "https://" + host
+                if httpsPort != "443" {
+                        redirectURL += ":" + httpsPort
+                }
+                redirectURL += c.OriginalURL()
+                return c.Redirect(redirectURL, fiber.StatusMovedPermanently)
+        }
+
+        // Handle custom redirect (301/302)
+        if strings.HasPrefix(targetStr, "@redirect:") {
+                parts := strings.SplitN(targetStr, ":", 3) // @redirect:code:url
+                if len(parts) == 3 {
+                        code := fiber.StatusMovedPermanently
+                        if parts[1] == "302" {
+                                code = fiber.StatusFound
+                        }
+                        return c.Redirect(parts[2] + c.OriginalURL(), code)
+                }
         }
 
         // Handle dynamic container resolution

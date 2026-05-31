@@ -42,30 +42,22 @@
           </template>
         </el-table-column>
         
-        <el-table-column prop="listen_ports" label="监听端口" width="150">
+        <el-table-column label="监听端口" width="180">
           <template #default="{ row }">
-            <el-tag size="small" type="success" class="!bg-green-500/10 !border-green-500/20 !text-green-400">
-              {{ row.listen_ports || '80, 443' }}
-            </el-tag>
+            <div class="flex gap-1">
+              <el-tag v-if="row.http_port" size="small" type="info" class="!bg-blue-500/10 !border-blue-500/20 !text-blue-400">
+                HTTP:{{ row.http_port }}
+              </el-tag>
+              <el-tag v-if="row.tls_enabled && row.https_port" size="small" type="success" class="!bg-green-500/10 !border-green-500/20 !text-green-400">
+                HTTPS:{{ row.https_port }}
+              </el-tag>
+            </div>
           </template>
         </el-table-column>
 
         <el-table-column prop="target_urls" label="目标地址/端口" min-width="250">
           <template #default="{ row }">
             <span class="text-zinc-400 text-sm font-mono break-all">{{ row.target_urls }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="protocol" label="协议支持" width="150">
-          <template #default="{ row }">
-            <div class="flex gap-1">
-              <el-tag size="small" :type="row.tls_enabled ? 'success' : 'info'" class="!bg-zinc-800 !border-zinc-700 !text-zinc-300">
-                {{ row.tls_enabled ? 'HTTPS' : 'HTTP' }}
-              </el-tag>
-              <el-tag v-if="row.ws_enabled" size="small" type="warning" class="!bg-zinc-800 !border-zinc-700 !text-zinc-300">
-                WS
-              </el-tag>
-            </div>
           </template>
         </el-table-column>
 
@@ -114,7 +106,7 @@
     <el-dialog
       v-model="ruleDialogVisible"
       :title="isEditing ? '编辑中继规则' : '配置中继规则'"
-      width="500px"
+      width="520px"
       custom-class="dark-dialog"
       :destroy-on-close="true"
     >
@@ -122,24 +114,76 @@
         <el-form-item label="访问域名" required>
           <el-input v-model="ruleForm.domain" placeholder="例如: api.godelion.com" />
         </el-form-item>
-        <el-form-item label="监听端口" prop="listen_ports" required>
-          <el-input v-model="ruleForm.listen_ports" placeholder="如: 80, 443, 8080" />
+
+        <!-- 规则类型 -->
+        <el-form-item label="规则类型" required>
+          <el-radio-group v-model="ruleForm.rule_type" class="!w-full flex">
+            <el-radio label="proxy">反向代理</el-radio>
+            <el-radio label="redirect">跳转重定向</el-radio>
+          </el-radio-group>
         </el-form-item>
 
-        <el-form-item label="目标类型" required>
+        <!-- 跳转配置（仅跳转类型显示） -->
+        <template v-if="ruleForm.rule_type === 'redirect'">
+          <el-form-item label="跳转地址" required>
+            <el-input v-model="ruleForm.redirect_url" placeholder="例如: https://new.example.com" />
+          </el-form-item>
+          <el-form-item label="跳转类型" required>
+            <el-radio-group v-model="ruleForm.redirect_code">
+              <el-radio :label="301">301 永久重定向</el-radio>
+              <el-radio :label="302">302 临时重定向</el-radio>
+            </el-radio-group>
+          </el-form-item>
+        </template>
+
+        <!-- HTTP 端口 -->
+        <el-form-item label="HTTP 端口" :required="!ruleForm.tls_enabled">
+          <el-input v-model="ruleForm.http_port" placeholder="例如: 80" :disabled="false" />
+          <p v-if="ruleForm.tls_enabled" class="text-xs text-zinc-500 mt-1">留空则不监听 HTTP，填写后自动跳转到 HTTPS</p>
+        </el-form-item>
+
+        <!-- HTTPS 开关 -->
+        <el-form-item label="HTTPS">
+          <el-switch v-model="ruleForm.tls_enabled" />
+        </el-form-item>
+
+        <!-- HTTPS 端口（仅开启 HTTPS 时显示） -->
+        <el-form-item v-if="ruleForm.tls_enabled" label="HTTPS 端口" required>
+          <el-input v-model="ruleForm.https_port" placeholder="例如: 443" />
+        </el-form-item>
+
+        <!-- SSL 证书（仅开启 HTTPS 时显示） -->
+        <el-form-item v-if="ruleForm.tls_enabled" label="SSL 证书" required>
+          <el-select v-model="ruleForm.ssl_cert_id" placeholder="请选择绑定的 SSL 证书" class="w-full">
+            <el-option
+              v-for="cert in sslCerts"
+              :key="cert.id"
+              :label="cert.domain"
+              :value="cert.id"
+            >
+              <div class="flex justify-between items-center">
+                <span>{{ cert.domain }}</span>
+                <span class="text-zinc-500 text-xs ml-2">{{ new Date(cert.expires_at).toLocaleDateString() }} 到期</span>
+              </div>
+            </el-option>
+          </el-select>
+        </el-form-item>
+
+        <!-- 目标类型（仅代理类型显示） -->
+        <el-form-item v-if="ruleForm.rule_type === 'proxy'" label="目标类型" required>
           <el-radio-group v-model="targetType" class="!w-full flex">
             <el-radio label="custom">自定义地址</el-radio>
             <el-radio label="container">选择容器</el-radio>
           </el-radio-group>
         </el-form-item>
 
-        <template v-if="targetType === 'custom'">
+        <template v-if="ruleForm.rule_type === 'proxy' && targetType === 'custom'">
           <el-form-item label="目标地址" prop="target_urls" required>
             <el-input v-model="ruleForm.target_urls" placeholder="如: 127.0.0.1:3000 (支持多个，逗号隔开)" />
           </el-form-item>
         </template>
 
-        <template v-else>
+        <template v-if="ruleForm.rule_type === 'proxy' && targetType !== 'custom'">
           <el-form-item label="目标容器" required>
             <el-select v-model="selectedContainer" placeholder="请选择目标容器" class="w-full" @change="handleContainerSelect">
               <el-option
@@ -167,28 +211,6 @@
             </el-select>
           </el-form-item>
         </template>
-
-        <el-form-item label="HTTPS 开关" prop="tls_enabled">
-          <div class="flex flex-col gap-1 w-full">
-            <el-switch v-model="ruleForm.tls_enabled" />
-          </div>
-        </el-form-item>
-
-        <el-form-item label="SSL 证书" required v-if="ruleForm.tls_enabled">
-          <el-select v-model="ruleForm.ssl_cert_id" placeholder="请选择绑定的 SSL 证书" class="w-full">
-            <el-option
-              v-for="cert in sslCerts"
-              :key="cert.id"
-              :label="cert.domain"
-              :value="cert.id"
-            >
-              <div class="flex justify-between items-center">
-                <span>{{ cert.domain }}</span>
-                <span class="text-zinc-500 text-xs ml-2">{{ new Date(cert.expires_at).toLocaleDateString() }} 到期</span>
-              </div>
-            </el-option>
-          </el-select>
-        </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
@@ -230,10 +252,14 @@ const currentEditId = ref('')
 
 const ruleForm = reactive({
   domain: '',
-  listen_ports: '80, 443',
-  target_urls: '',
+  http_port: '80',
+  https_port: '443',
   tls_enabled: false,
-  ssl_cert_id: ''
+  ssl_cert_id: '',
+  target_urls: '',
+  rule_type: 'proxy',
+  redirect_url: '',
+  redirect_code: 301
 })
 
 const rules = ref<any[]>([])
@@ -305,7 +331,7 @@ onMounted(() => {
 
 const filteredRules = computed(() => {
   return rules.value.filter(r => {
-    const matchQuery = r.domain.includes(searchDomain.value) || r.container_id.includes(searchDomain.value)
+    const matchQuery = r.domain.includes(searchDomain.value) || (r.container_id && r.container_id.includes(searchDomain.value))
     const matchProtocol = protocolFilter.value 
       ? (protocolFilter.value === 'https' ? r.tls_enabled : (protocolFilter.value === 'http' ? !r.tls_enabled : true))
       : true
@@ -317,14 +343,16 @@ const handleEdit = (row: any) => {
   isEditing.value = true
   currentEditId.value = row.id
   ruleForm.domain = row.domain
-  ruleForm.listen_ports = row.listen_ports
+  ruleForm.http_port = row.http_port || ''
+  ruleForm.https_port = row.https_port || '443'
   ruleForm.tls_enabled = row.tls_enabled
   ruleForm.ssl_cert_id = row.ssl_cert_id || ''
+  ruleForm.rule_type = row.rule_type || 'proxy'
+  ruleForm.redirect_url = row.redirect_url || ''
+  ruleForm.redirect_code = row.redirect_code || 301
 
-  if (row.target_urls.startsWith('Container: ')) {
+  if (row.target_urls && row.target_urls.startsWith('Container: ')) {
     targetType.value = 'container'
-    // Target display is e.g. "Container: nginx-test (80)"
-    // Need to find container id from name
     const match = row.target_urls.match(/Container: (.+) \((\d+)\)/)
     if (match) {
       const cName = match[1]
@@ -338,7 +366,7 @@ const handleEdit = (row: any) => {
     }
   } else {
     targetType.value = 'custom'
-    ruleForm.target_urls = row.target_urls
+    ruleForm.target_urls = row.target_urls || ''
   }
 
   ruleDialogVisible.value = true
@@ -356,21 +384,50 @@ const handleAddRule = async () => {
     }
   }
 
-  if (targetType.value === 'custom' && (!ruleForm.domain || !ruleForm.listen_ports || !ruleForm.target_urls)) {
+  if (targetType.value === 'custom' && ruleForm.rule_type === 'proxy' && (!ruleForm.domain || !ruleForm.target_urls)) {
     ElMessage.warning('请填写完整的路由规则')
     return
+  }
+
+  // Validate redirect
+  if (ruleForm.rule_type === 'redirect') {
+    if (!ruleForm.redirect_url) {
+      ElMessage.warning('请填写跳转地址')
+      return
+    }
+  }
+
+  // Validate port requirements
+  if (ruleForm.tls_enabled) {
+    if (!ruleForm.https_port) {
+      ElMessage.warning('开启 HTTPS 时必须填写 HTTPS 端口')
+      return
+    }
+    if (!ruleForm.ssl_cert_id) {
+      ElMessage.warning('开启 HTTPS 时必须选择 SSL 证书')
+      return
+    }
+  } else {
+    if (!ruleForm.http_port) {
+      ElMessage.warning('未开启 HTTPS 时必须填写 HTTP 端口')
+      return
+    }
   }
   
   loading.value = true
   try {
     const payload = {
       domain: ruleForm.domain,
-      listen_ports: ruleForm.listen_ports,
-      target_urls: targetType.value === 'custom' ? ruleForm.target_urls : '',
+      http_port: ruleForm.http_port,
+      https_port: ruleForm.tls_enabled ? ruleForm.https_port : '',
+      target_urls: ruleForm.rule_type === 'proxy' && targetType.value === 'custom' ? ruleForm.target_urls : '',
       tls_enabled: ruleForm.tls_enabled,
       ssl_cert_id: ruleForm.tls_enabled ? ruleForm.ssl_cert_id : '',
-      container_id: targetType.value === 'container' ? selectedContainer.value : '',
-      target_port: targetType.value === 'container' ? parseInt(selectedContainerPort.value) : 0
+      container_id: ruleForm.rule_type === 'proxy' && targetType.value === 'container' ? selectedContainer.value : '',
+      target_port: ruleForm.rule_type === 'proxy' && targetType.value === 'container' ? parseInt(selectedContainerPort.value) : 0,
+      rule_type: ruleForm.rule_type,
+      redirect_url: ruleForm.rule_type === 'redirect' ? ruleForm.redirect_url : '',
+      redirect_code: ruleForm.rule_type === 'redirect' ? ruleForm.redirect_code : 301
     }
     
     let res
@@ -383,17 +440,7 @@ const handleAddRule = async () => {
     if (res.code === 200) {
       ElMessage.success(isEditing.value ? '规则更新成功' : '规则添加成功')
       ruleDialogVisible.value = false
-      // reset
-      ruleForm.domain = ''
-      ruleForm.listen_ports = '80, 443'
-      ruleForm.target_urls = ''
-      ruleForm.tls_enabled = false
-      ruleForm.ssl_cert_id = ''
-      targetType.value = 'custom'
-      selectedContainer.value = ''
-      selectedContainerPort.value = ''
-      isEditing.value = false
-      currentEditId.value = ''
+      resetForm()
       fetchRules()
     } else {
       ElMessage.error(res.message || (isEditing.value ? '更新失败' : '添加失败'))
@@ -405,17 +452,25 @@ const handleAddRule = async () => {
   }
 }
 
-const openAddDialog = () => {
-  isEditing.value = false
-  currentEditId.value = ''
+const resetForm = () => {
   ruleForm.domain = ''
-  ruleForm.listen_ports = '80, 443'
-  ruleForm.target_urls = ''
+  ruleForm.http_port = '80'
+  ruleForm.https_port = '443'
   ruleForm.tls_enabled = false
   ruleForm.ssl_cert_id = ''
+  ruleForm.target_urls = ''
+  ruleForm.rule_type = 'proxy'
+  ruleForm.redirect_url = ''
+  ruleForm.redirect_code = 301
   targetType.value = 'custom'
   selectedContainer.value = ''
   selectedContainerPort.value = ''
+  isEditing.value = false
+  currentEditId.value = ''
+}
+
+const openAddDialog = () => {
+  resetForm()
   ruleDialogVisible.value = true
 }
 

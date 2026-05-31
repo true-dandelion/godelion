@@ -21,7 +21,15 @@ var (
         workloadProxyMutex   sync.Mutex
         
         // SystemPort tracks the main port used by the Godelion API to prevent it from being stopped
-        SystemPort = "8080"
+        SystemPort = "9960"
+
+        // HTTPS config
+        EnableHTTPS  bool
+        CertContent  string
+        KeyContent   string
+
+        // RestartChan is used to signal a server restart when config changes
+        RestartChan = make(chan string, 1)
 )
 
 // A generic structure to hold parsed ports
@@ -32,19 +40,24 @@ type WorkloadPort struct {
 
 // LoadAndStartAllProxies should be called on startup to restore proxy listeners for all running workloads
 func LoadAndStartAllProxies() {
+	// Load container port mappings
 	var containers []models.Container
 	db.DB.Find(&containers)
-
 	for _, c := range containers {
 		if c.DockerID == "" || c.Ports == "" || c.Ports == "[]" {
 			continue
 		}
-
-		// Only start if the container is actually running
 		info, err := DockerClient.ContainerInspect(context.Background(), c.DockerID)
 		if err == nil && info.State.Running {
 			StartProxiesForContainer(c)
 		}
+	}
+
+	// Load gateway rules
+	var rules []models.GatewayRule
+	db.DB.Find(&rules)
+	for _, rule := range rules {
+		UpdateProxyRule(rule)
 	}
 }
 
@@ -78,11 +91,9 @@ func CheckAndStopUnusedListener(port string) {
         var rules []models.GatewayRule
         db.DB.Find(&rules)
         for _, r := range rules {
-                for _, p := range strings.Split(r.ListenPorts, ",") {
-                        if strings.TrimSpace(p) == port {
-                                inUse = true
-                                break
-                        }
+                if r.HTTPPort == port || r.HTTPSPort == port {
+                        inUse = true
+                        break
                 }
         }
 
@@ -161,15 +172,9 @@ func CheckPortConflict(port string, domain string, excludeRuleID string, exclude
                 if r.ID == excludeRuleID {
                         continue
                 }
-                for _, rp := range strings.Split(r.ListenPorts, ",") {
-                        rp = strings.TrimSpace(rp)
-                        if rp == port {
-                                // If checking for a container (domain == ""), ANY gateway rule on this port is a conflict.
-                                // Because a container binds the port on all interfaces/domains.
-                                // If checking for a gateway rule (domain != ""), conflict only if the SAME domain uses it.
-                                if domain == "" || r.Domain == domain {
-                                        return true, "中继规则: " + r.Domain
-                                }
+                if r.HTTPPort == port || r.HTTPSPort == port {
+                        if domain == "" || r.Domain == domain {
+                                return true, "中继规则: " + r.Domain
                         }
                 }
         }
@@ -222,6 +227,43 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		// 2. Select target
 		targetStr := pool.Next()
 		if targetStr != "" {
+			// Handle HTTP→HTTPS redirect
+			if targetStr == "@redirect:https" {
+				httpsPort := "443"
+				proxyMutex.RLock()
+				for k := range proxyTargetPools {
+					if strings.HasPrefix(k, domain+":") && k != key {
+						parts := strings.SplitN(k, ":", 2)
+						if len(parts) == 2 {
+							httpsPort = parts[1]
+						}
+						break
+					}
+				}
+				proxyMutex.RUnlock()
+
+				redirectURL := "https://" + domain
+				if httpsPort != "443" {
+					redirectURL += ":" + httpsPort
+				}
+				redirectURL += r.RequestURI
+				http.Redirect(w, r, redirectURL, http.StatusMovedPermanently)
+				return
+			}
+
+			// Handle custom redirect (301/302)
+			if strings.HasPrefix(targetStr, "@redirect:") {
+				parts := strings.SplitN(targetStr, ":", 3) // @redirect:code:url
+				if len(parts) == 3 {
+					code := http.StatusMovedPermanently
+					if parts[1] == "302" {
+						code = http.StatusFound
+					}
+					http.Redirect(w, r, parts[2]+r.RequestURI, code)
+					return
+				}
+			}
+
 			// Handle dynamic container resolution
 			if strings.HasPrefix(targetStr, "@container:") {
 				parts := strings.SplitN(targetStr, ":", 3) // @container:uuid:port

@@ -107,6 +107,15 @@
           show-icon
           class="!bg-blue-500/10 !text-blue-400 !border-blue-500/20 border"
         />
+
+        <!-- 安装日志窗口 -->
+        <div v-if="installLog" class="mt-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-zinc-400">安装日志</span>
+            <el-button size="small" text @click="installLog = ''" class="!text-zinc-500">清除</el-button>
+          </div>
+          <div class="bg-black/50 border border-zinc-800 rounded-lg p-4 max-h-80 overflow-y-auto font-mono text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed">{{ installLog }}</div>
+        </div>
       </div>
     </el-card>
   </div>
@@ -121,6 +130,7 @@ import { Monitor, Download, Refresh, VideoPlay, VideoPause } from '@element-plus
 const loading = ref(true)
 const installing = ref(false)
 const operating = ref(false)
+const installLog = ref('')
 
 const status = ref({
   installed: false,
@@ -153,8 +163,12 @@ const handleInstallDocker = () => {
     }
   ).then(async () => {
     installing.value = true
+    installLog.value = ''
     try {
       const res: any = await installDocker()
+      if (res.data?.log) {
+        installLog.value = res.data.log
+      }
       if (res.code === 200) {
         ElMessage.success('Docker 安装并启动成功！')
         await fetchDockerStatus()

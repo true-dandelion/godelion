@@ -38,15 +38,20 @@ type Container struct {
 
 type GatewayRule struct {
         ID          string         `gorm:"primaryKey" json:"id"`
-        Domain      string         `gorm:"not null" json:"domain"` // Removed uniqueIndex to allow multiple ports for the same domain
-        ListenPorts string         `json:"listen_ports"` // e.g. "80, 443"
-        TargetURLs  string         `json:"target_urls"`  // e.g. "127.0.0.1:3000, demo:3000"
+        Domain      string         `gorm:"not null" json:"domain"`
+        HTTPPort    string         `json:"http_port"`    // e.g. "80"
+        HTTPSPort   string         `json:"https_port"`   // e.g. "443"
+        TargetURLs  string         `json:"target_urls"`  // e.g. "127.0.0.1:3000"
 	TargetPort  int            `json:"target_port"`  // Legacy
         ContainerID string         `json:"container_id"` // Legacy
         TLSEnabled  bool           `json:"tls_enabled"`
-        SSLCertID   string         `json:"ssl_cert_id"`  // Explicitly selected SSL Certificate ID
+        SSLCertID   string         `json:"ssl_cert_id"`
         CertPath    string         `json:"cert_path"`
 	KeyPath     string         `json:"key_path"`
+	// Redirect fields
+	RuleType    string         `gorm:"default:proxy" json:"rule_type"`    // "proxy" or "redirect"
+	RedirectURL string         `json:"redirect_url"`                       // target URL for redirect
+	RedirectCode int           `gorm:"default:301" json:"redirect_code"`   // 301 or 302
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
@@ -79,9 +84,9 @@ type SystemConfig struct {
 	ID                    uint   `gorm:"primaryKey" json:"id"`
 	PanelName             string `gorm:"default:'Godelion'" json:"panel_name"`
 	SessionTimeout        int    `gorm:"default:86400" json:"session_timeout"`           // seconds, default 24 hours
+	Port                  int    `gorm:"default:9960" json:"port"`                       // unified port for both HTTP and HTTPS
 	EnableHTTPS           bool   `gorm:"default:false" json:"enable_https"`
-	HTTPSPort             int    `gorm:"default:443" json:"https_port"`
-	HTTPPort              int    `gorm:"default:8080" json:"http_port"`
+	PanelSSLID            string `json:"panel_ssl_id"`                                    // SSL certificate ID for panel HTTPS
 	SecureEntrypoint      string `json:"secure_entrypoint"`                              // e.g. "/admin"
 	AuthorizedIPs         string `gorm:"type:text" json:"authorized_ips"`                // comma-separated IPs
 	DomainBinding         string `json:"domain_binding"`                                 // e.g. "example.com"

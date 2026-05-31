@@ -1,8 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
-import Inspector from 'unplugin-vue-dev-locator/vite'
-import traeBadgePlugin from 'vite-plugin-trae-solo-badge'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -12,16 +10,6 @@ export default defineConfig({
   },
   plugins: [
     vue(),
-    Inspector(),
-    traeBadgePlugin({
-      variant: 'dark',
-      position: 'bottom-right',
-      prodOnly: true,
-      clickable: true,
-      clickUrl: 'https://www.trae.ai/solo?showJoin=1',
-      autoTheme: true,
-      autoThemeTarget: '#app',
-    }),
   ],
   resolve: {
     alias: {
@@ -31,6 +19,12 @@ export default defineConfig({
   server: {
     watch: {
       ignored: ['**/node_modules/**', '**/.git/**', '**/.pnpm-store/**']
-    }
+    },
+    proxy: {
+      '/sys': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+    },
   }
 })

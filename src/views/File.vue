@@ -250,7 +250,7 @@ const handleExtract = async (row: any) => {
   const filePath = currentPath.value === '/' ? `/${row.name}` : `${currentPath.value}/${row.name}`
   ElMessage.info(`正在解压 ${row.name}...`)
   try {
-    const res = await extractArchive({ path: filePath })
+    const res: any = await extractArchive({ path: filePath })
     if (res.code === 200) {
       ElMessage.success('解压成功')
       fetchFiles()
@@ -310,7 +310,7 @@ const confirmMove = async () => {
   const targetPath = targetDir === '/' ? `/${moveTargetRow.value.name}` : `${targetDir}/${moveTargetRow.value.name}`
   
   try {
-    const res = await moveFile({ source_path: sourcePath, target_path: targetPath })
+    const res: any = await moveFile({ source_path: sourcePath, target_path: targetPath })
     if (res.code === 200) {
       ElMessage.success('移动成功')
       moveDialogVisible.value = false
@@ -411,7 +411,7 @@ const handleCreateFolder = () => {
     customClass: 'dark-message-box'
   }).then(async ({ value }) => {
     try {
-      const res = await createFolder(currentPath.value, value)
+      const res: any = await createFolder(currentPath.value, value)
       if (res.code === 200) {
         ElMessage.success('创建成功')
         fetchFiles()

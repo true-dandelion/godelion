@@ -15,7 +15,7 @@
             <el-icon :size="32" class="text-white"><Platform /></el-icon>
           </div>
           <h1 class="text-3xl font-bold text-white tracking-tight">Godelion</h1>
-          <p class="text-zinc-400 mt-2 text-sm">企业级安全管控与中继网关</p>
+          <p class="text-zinc-400 mt-2 text-sm">安全管控与中继网关</p>
         </div>
 
         <!-- 登录表单 -->

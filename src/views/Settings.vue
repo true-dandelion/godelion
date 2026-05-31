@@ -107,29 +107,45 @@
                 <label class="block text-sm font-medium text-zinc-400 mb-2">面板名称</label>
                 <el-input v-model="configForm.panel_name" placeholder="Godelion" size="large" class="!bg-zinc-800/50" />
               </div>
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-sm font-medium text-zinc-400 mb-2">HTTP 端口</label>
-                  <el-input-number v-model="configForm.http_port" :min="1" :max="65535" size="large" class="w-full !bg-zinc-800/50" controls-position="right" />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-zinc-400 mb-2">HTTPS 端口</label>
-                  <el-input-number v-model="configForm.https_port" :min="1" :max="65535" size="large" class="w-full !bg-zinc-800/50" controls-position="right" />
-                </div>
+              <div>
+                <label class="block text-sm font-medium text-zinc-400 mb-2">面板端口</label>
+                <el-input-number v-model="configForm.port" :min="1" :max="65535" size="large" class="w-full !bg-zinc-800/50" controls-position="right" />
+                <p class="text-xs text-zinc-600 mt-1">HTTP 和 HTTPS 共用同一端口</p>
               </div>
             </div>
           </div>
 
-          <!-- HTTPS 开关 -->
+          <!-- HTTPS 设置 -->
           <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
             <div class="flex items-center justify-between mb-4">
               <h3 class="text-lg font-semibold text-white">HTTPS</h3>
               <el-switch v-model="configForm.enable_https" size="large" />
             </div>
             <p class="text-sm text-zinc-500 mb-4">启用 HTTPS 加密传输，提升访问安全性</p>
-            <div class="flex items-center gap-2 text-xs text-zinc-600 bg-zinc-800/50 rounded-lg p-3">
+            <div v-if="configForm.enable_https" class="space-y-3">
+              <label class="block text-sm font-medium text-zinc-400">SSL 证书</label>
+              <el-select
+                v-model="configForm.panel_ssl_id"
+                placeholder="选择 SSL 证书"
+                size="large"
+                class="w-full"
+                filterable
+              >
+                <el-option
+                  v-for="cert in sslCerts"
+                  :key="cert.id"
+                  :label="cert.domain"
+                  :value="cert.id"
+                />
+              </el-select>
+              <p v-if="sslCerts.length === 0" class="text-xs text-amber-500">
+                <el-icon :size="12"><WarningFilled /></el-icon>
+                暂无可用证书，请先在 SSL 证书页面上传
+              </p>
+            </div>
+            <div v-else class="flex items-center gap-2 text-xs text-zinc-600 bg-zinc-800/50 rounded-lg p-3">
               <el-icon :size="14"><InfoFilled /></el-icon>
-              需要配置 SSL 证书才能正常使用
+              开启后需要选择 SSL 证书
             </div>
           </div>
         </div>
@@ -369,7 +385,8 @@ import {
   get2FAStatus,
   generate2FA,
   verify2FA,
-  disable2FA
+  disable2FA,
+  getSSLCerts
 } from '../api'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../store/user'
@@ -420,9 +437,9 @@ const configSaving = ref(false)
 const configForm = reactive({
   panel_name: 'Godelion',
   session_timeout: 86400,
+  port: 8080,
   enable_https: false,
-  http_port: 8080,
-  https_port: 443,
+  panel_ssl_id: '',
   secure_entrypoint: '',
   authorized_ips: '',
   domain_binding: '',
@@ -430,6 +447,17 @@ const configForm = reactive({
   password_complexity: false,
   two_factor_enabled: false
 })
+
+const sslCerts = ref<any[]>([])
+
+const fetchSSLCerts = async () => {
+  try {
+    const res: any = await getSSLCerts()
+    if (res.code === 200) {
+      sslCerts.value = res.data || []
+    }
+  } catch {}
+}
 
 const fetchUserProfile = async () => {
   userLoading.value = true
@@ -462,7 +490,7 @@ const handleUsernameSave = async () => {
     ElMessage.warning('请输入用户名')
     return
   }
-  if (userForm.new_username === userStore.user?.username) {
+  if (userForm.new_username === userStore.userInfo?.username) {
     ElMessage.info('用户名未修改')
     return
   }
@@ -577,6 +605,7 @@ const twoFADisableCode = ref('')
 const twoFADisablePassword = ref('')
 const disable2FAMethod = ref<'code' | 'password'>('code')
 const twoFASecret = ref('')
+const twoFAQRCode = ref('')
 const twoFAVerifyCode = ref('')
 
 const fetch2FAStatus = async () => {
@@ -683,6 +712,7 @@ onMounted(() => {
   fetchUserProfile()
   fetchSystemConfig()
   fetch2FAStatus()
+  fetchSSLCerts()
 })
 </script>
 

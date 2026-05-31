@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	
+
 	"godelion/db"
 	"godelion/models"
 	"godelion/services"
@@ -14,43 +14,78 @@ import (
 )
 
 func CreateGatewayRule(c *fiber.Ctx) error {
-        var payload struct {
-                Domain      string `json:"domain"`
-                ListenPorts string `json:"listen_ports"`
-                TargetURLs  string `json:"target_urls"`
-                TLSEnabled  bool   `json:"tls_enabled"`
-                SSLCertID   string `json:"ssl_cert_id"`
-                ContainerID string `json:"container_id"`
-                TargetPort  int    `json:"target_port"`
-        }
+	var payload struct {
+		Domain       string `json:"domain"`
+		HTTPPort     string `json:"http_port"`
+		HTTPSPort    string `json:"https_port"`
+		TargetURLs   string `json:"target_urls"`
+		TLSEnabled   bool   `json:"tls_enabled"`
+		SSLCertID    string `json:"ssl_cert_id"`
+		ContainerID  string `json:"container_id"`
+		TargetPort   int    `json:"target_port"`
+		RuleType     string `json:"rule_type"`
+		RedirectURL  string `json:"redirect_url"`
+		RedirectCode int    `json:"redirect_code"`
+	}
 
-        if err := c.BodyParser(&payload); err != nil {
-                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
-        }
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
+	}
 
-        // Validate port conflicts
-        if payload.ListenPorts != "" {
-                for _, p := range strings.Split(payload.ListenPorts, ",") {
-                        port := strings.TrimSpace(p)
-                        if port == "" {
-                                continue
-                        }
-                        isConflict, reason := services.CheckPortConflict(port, payload.Domain, "", "")
-                        if isConflict {
-                                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "端口 " + port + " 已被 [" + reason + "] 占用"})
-                        }
-                }
-        }
+	// Default rule type
+	if payload.RuleType == "" {
+		payload.RuleType = "proxy"
+	}
+	if payload.RedirectCode == 0 {
+		payload.RedirectCode = 301
+	}
 
-        rule := models.GatewayRule{
-		ID:          uuid.NewString(),
-		Domain:      payload.Domain,
-		ListenPorts: payload.ListenPorts,
-		TargetURLs:  payload.TargetURLs,
-		TLSEnabled:  payload.TLSEnabled,
-		SSLCertID:   payload.SSLCertID,
-		ContainerID: payload.ContainerID,
-		TargetPort:  payload.TargetPort,
+	// Validate: HTTPS enabled requires https_port and ssl_cert_id
+	if payload.TLSEnabled {
+		if payload.HTTPSPort == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "开启 HTTPS 时必须填写 HTTPS 端口"})
+		}
+		if payload.SSLCertID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "开启 HTTPS 时必须选择 SSL 证书"})
+		}
+	} else {
+		if payload.HTTPPort == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "未开启 HTTPS 时必须填写 HTTP 端口"})
+		}
+	}
+
+	// Validate port conflicts
+	portsToCheck := []string{}
+	if payload.HTTPPort != "" {
+		portsToCheck = append(portsToCheck, payload.HTTPPort)
+	}
+	if payload.TLSEnabled && payload.HTTPSPort != "" {
+		portsToCheck = append(portsToCheck, payload.HTTPSPort)
+	}
+	for _, port := range portsToCheck {
+		port = strings.TrimSpace(port)
+		if port == "" {
+			continue
+		}
+		isConflict, reason := services.CheckPortConflict(port, payload.Domain, "", "")
+		if isConflict {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "端口 " + port + " 已被 [" + reason + "] 占用"})
+		}
+	}
+
+	rule := models.GatewayRule{
+		ID:           uuid.NewString(),
+		Domain:       payload.Domain,
+		HTTPPort:     payload.HTTPPort,
+		HTTPSPort:    payload.HTTPSPort,
+		TargetURLs:   payload.TargetURLs,
+		TLSEnabled:   payload.TLSEnabled,
+		SSLCertID:    payload.SSLCertID,
+		ContainerID:  payload.ContainerID,
+		TargetPort:   payload.TargetPort,
+		RuleType:     payload.RuleType,
+		RedirectURL:  payload.RedirectURL,
+		RedirectCode: payload.RedirectCode,
 	}
 
 	if err := db.DB.Create(&rule).Error; err != nil {
@@ -72,24 +107,28 @@ func ListGatewayRules(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "获取规则失败"})
 	}
 
-	// We will create a unified response format that includes both domain-based GatewayRules and HostPort mappings
 	type UnifiedRule struct {
 		ID            string `json:"id"`
 		Domain        string `json:"domain"`
-		ListenPorts   string `json:"listen_ports"`
+		HTTPPort      string `json:"http_port"`
+		HTTPSPort     string `json:"https_port"`
 		TargetURLs    string `json:"target_urls"`
 		TLSEnabled    bool   `json:"tls_enabled"`
 		SSLCertID     string `json:"ssl_cert_id"`
 		IsPortMapping bool   `json:"is_port_mapping"`
 		ContainerID   string `json:"container_id,omitempty"`
+		RuleType      string `json:"rule_type"`
+		RedirectURL   string `json:"redirect_url,omitempty"`
+		RedirectCode  int    `json:"redirect_code,omitempty"`
 	}
 
 	var unifiedRules []UnifiedRule
 
-	// 1. Add standard domain gateway rules
 	for _, r := range rules {
 		targetDisplay := r.TargetURLs
-		if r.ContainerID != "" {
+		if r.RuleType == "redirect" {
+			targetDisplay = "→ " + r.RedirectURL + " (" + fmt.Sprintf("%d", r.RedirectCode) + ")"
+		} else if r.ContainerID != "" {
 			var c models.Container
 			if err := db.DB.First(&c, "id = ?", r.ContainerID).Error; err == nil {
 				targetDisplay = "Container: " + c.Name + " (" + fmt.Sprintf("%d", r.TargetPort) + ")"
@@ -103,16 +142,20 @@ func ListGatewayRules(c *fiber.Ctx) error {
 		unifiedRules = append(unifiedRules, UnifiedRule{
 			ID:            r.ID,
 			Domain:        r.Domain,
-			ListenPorts:   r.ListenPorts,
+			HTTPPort:      r.HTTPPort,
+			HTTPSPort:     r.HTTPSPort,
 			TargetURLs:    targetDisplay,
 			TLSEnabled:    r.TLSEnabled,
 			SSLCertID:     r.SSLCertID,
 			IsPortMapping: false,
 			ContainerID:   r.ContainerID,
+			RuleType:      r.RuleType,
+			RedirectURL:   r.RedirectURL,
+			RedirectCode:  r.RedirectCode,
 		})
 	}
 
-	// 2. Add container port mappings
+	// Add container port mappings
 	var containers []models.Container
 	if err := db.DB.Find(&containers).Error; err == nil {
 		for _, container := range containers {
@@ -124,12 +167,12 @@ func ListGatewayRules(c *fiber.Ctx) error {
 			if err := json.Unmarshal([]byte(container.Ports), &ports); err == nil {
 				for _, p := range ports {
 					if p.Host != "" && p.Container != "" {
-						tlsEnabled := p.Host == "443" // Simple assumption: 443 implies TLS
+						tlsEnabled := p.Host == "443"
 
 						unifiedRules = append(unifiedRules, UnifiedRule{
 							ID:            "port-" + container.ID + "-" + p.Host,
 							Domain:        "*:" + p.Host + " (主机端口代理)",
-							ListenPorts:   p.Host,
+							HTTPPort:      p.Host,
 							TargetURLs:    "Container: " + container.Name + ":" + p.Container,
 							TLSEnabled:    tlsEnabled,
 							IsPortMapping: true,
@@ -148,65 +191,97 @@ func ListGatewayRules(c *fiber.Ctx) error {
 }
 
 func UpdateGatewayRule(c *fiber.Ctx) error {
-        id := c.Params("id")
-        var payload struct {
-                Domain      string `json:"domain"`
-                ListenPorts string `json:"listen_ports"`
-                TargetURLs  string `json:"target_urls"`
-                TLSEnabled  bool   `json:"tls_enabled"`
-                SSLCertID   string `json:"ssl_cert_id"`
-                ContainerID string `json:"container_id"`
-                TargetPort  int    `json:"target_port"`
-        }
+	id := c.Params("id")
+	var payload struct {
+		Domain       string `json:"domain"`
+		HTTPPort     string `json:"http_port"`
+		HTTPSPort    string `json:"https_port"`
+		TargetURLs   string `json:"target_urls"`
+		TLSEnabled   bool   `json:"tls_enabled"`
+		SSLCertID    string `json:"ssl_cert_id"`
+		ContainerID  string `json:"container_id"`
+		TargetPort   int    `json:"target_port"`
+		RuleType     string `json:"rule_type"`
+		RedirectURL  string `json:"redirect_url"`
+		RedirectCode int    `json:"redirect_code"`
+	}
 
-        if err := c.BodyParser(&payload); err != nil {
-                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
-        }
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "请求格式错误"})
+	}
 
-        var rule models.GatewayRule
-        if err := db.DB.First(&rule, "id = ?", id).Error; err != nil {
-                return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "规则不存在"})
-        }
+	if payload.RuleType == "" {
+		payload.RuleType = "proxy"
+	}
+	if payload.RedirectCode == 0 {
+		payload.RedirectCode = 301
+	}
 
-        // Validate port conflicts
-        if payload.ListenPorts != "" {
-                for _, p := range strings.Split(payload.ListenPorts, ",") {
-                        port := strings.TrimSpace(p)
-                        if port == "" {
-                                continue
-                        }
-                        isConflict, reason := services.CheckPortConflict(port, payload.Domain, id, "")
-                        if isConflict {
-                                return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "端口 " + port + " 已被 [" + reason + "] 占用"})
-                        }
-                }
-        }
+	var rule models.GatewayRule
+	if err := db.DB.First(&rule, "id = ?", id).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "规则不存在"})
+	}
 
-        // Remove old proxy rule from memory/listeners
-        services.RemoveProxyRule(rule)
+	// Validate: HTTPS enabled requires https_port and ssl_cert_id
+	if payload.TLSEnabled {
+		if payload.HTTPSPort == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "开启 HTTPS 时必须填写 HTTPS 端口"})
+		}
+		if payload.SSLCertID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "开启 HTTPS 时必须选择 SSL 证书"})
+		}
+	} else {
+		if payload.HTTPPort == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "未开启 HTTPS 时必须填写 HTTP 端口"})
+		}
+	}
 
-        rule.Domain = payload.Domain
-        rule.ListenPorts = payload.ListenPorts
-        rule.TargetURLs = payload.TargetURLs
-        rule.TLSEnabled = payload.TLSEnabled
-        rule.SSLCertID = payload.SSLCertID
-        rule.ContainerID = payload.ContainerID
-        rule.TargetPort = payload.TargetPort
+	// Validate port conflicts
+	portsToCheck := []string{}
+	if payload.HTTPPort != "" {
+		portsToCheck = append(portsToCheck, payload.HTTPPort)
+	}
+	if payload.TLSEnabled && payload.HTTPSPort != "" {
+		portsToCheck = append(portsToCheck, payload.HTTPSPort)
+	}
+	for _, port := range portsToCheck {
+		port = strings.TrimSpace(port)
+		if port == "" {
+			continue
+		}
+		isConflict, reason := services.CheckPortConflict(port, payload.Domain, id, "")
+		if isConflict {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "端口 " + port + " 已被 [" + reason + "] 占用"})
+		}
+	}
 
-        if err := db.DB.Save(&rule).Error; err != nil {
-                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "更新规则失败"})
-        }
+	// Remove old proxy rule
+	services.RemoveProxyRule(rule)
 
-        // Apply proxy rule
-        services.UpdateProxyRule(rule)
+	rule.Domain = payload.Domain
+	rule.HTTPPort = payload.HTTPPort
+	rule.HTTPSPort = payload.HTTPSPort
+	rule.TargetURLs = payload.TargetURLs
+	rule.TLSEnabled = payload.TLSEnabled
+	rule.SSLCertID = payload.SSLCertID
+	rule.ContainerID = payload.ContainerID
+	rule.TargetPort = payload.TargetPort
+	rule.RuleType = payload.RuleType
+	rule.RedirectURL = payload.RedirectURL
+	rule.RedirectCode = payload.RedirectCode
 
-        LogAction(c, "Update", "Gateway", "Updated gateway rule for: "+rule.Domain)
+	if err := db.DB.Save(&rule).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "更新规则失败"})
+	}
 
-        return c.JSON(fiber.Map{
-                "code":    200,
-                "message": "Successfully updated",
-                "data":    rule,
-        })
+	services.UpdateProxyRule(rule)
+	LogAction(c, "Update", "Gateway", "Updated gateway rule for: "+rule.Domain)
+
+	return c.JSON(fiber.Map{
+		"code":    200,
+		"message": "Successfully updated",
+		"data":    rule,
+	})
 }
 
 func DeleteGatewayRule(c *fiber.Ctx) error {
@@ -217,14 +292,13 @@ func DeleteGatewayRule(c *fiber.Ctx) error {
 	}
 
 	if err := db.DB.Delete(&rule).Error; err != nil {
-                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "删除规则失败"})
-        }
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "删除规则失败"})
+	}
 
-        services.RemoveProxyRule(rule)
+	services.RemoveProxyRule(rule)
+	LogAction(c, "Delete", "Gateway", "Deleted gateway rule for: "+rule.Domain)
 
-        LogAction(c, "Delete", "Gateway", "Deleted gateway rule for: "+rule.Domain)
-
-        return c.JSON(fiber.Map{
+	return c.JSON(fiber.Map{
 		"code":    200,
 		"message": "Rule deleted",
 	})
