@@ -242,13 +242,36 @@ func (h *dynamicProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 				}
 				proxyMutex.RUnlock()
 
-				redirectURL := "https://" + domain
-				if httpsPort != "443" {
-					redirectURL += ":" + httpsPort
+				// WebSocket cannot follow HTTP redirects - proxy directly instead
+				isWebSocket := strings.EqualFold(r.Header.Get("Upgrade"), "websocket")
+				if isWebSocket {
+					httpsKey := domain + ":" + httpsPort
+					proxyMutex.RLock()
+					httpsPool, httpsExists := proxyTargetPools[httpsKey]
+					proxyMutex.RUnlock()
+					if httpsExists {
+						targetStr = httpsPool.Next()
+						if targetStr == "" {
+							w.Header().Set("Content-Type", "text/html; charset=utf-8")
+							w.WriteHeader(http.StatusBadGateway)
+							w.Write([]byte(getNiceErrorPage("502", r.Host)))
+							return
+						}
+					} else {
+						w.Header().Set("Content-Type", "text/html; charset=utf-8")
+						w.WriteHeader(http.StatusBadGateway)
+						w.Write([]byte(getNiceErrorPage("502", r.Host)))
+						return
+					}
+				} else {
+					redirectURL := "https://" + domain
+					if httpsPort != "443" {
+						redirectURL += ":" + httpsPort
+					}
+					redirectURL += r.RequestURI
+					http.Redirect(w, r, redirectURL, http.StatusMovedPermanently)
+					return
 				}
-				redirectURL += r.RequestURI
-				http.Redirect(w, r, redirectURL, http.StatusMovedPermanently)
-				return
 			}
 
 			// Handle custom redirect (301/302)

@@ -238,12 +238,29 @@ func ProxyHandler(c *fiber.Ctx) error {
                 }
                 proxyMutex.RUnlock()
 
-                redirectURL := "https://" + host
-                if httpsPort != "443" {
-                        redirectURL += ":" + httpsPort
+                // WebSocket cannot follow HTTP redirects - proxy directly instead
+                isWebSocket := strings.EqualFold(c.Get("Upgrade"), "websocket")
+                if isWebSocket {
+                        httpsKey := host + ":" + httpsPort
+                        proxyMutex.RLock()
+                        httpsPool, httpsExists := proxyTargetPools[httpsKey]
+                        proxyMutex.RUnlock()
+                        if httpsExists {
+                                targetStr = httpsPool.Next()
+                                if targetStr == "" {
+                                        return c.Status(502).Type("html").SendString(getNiceErrorPage("502", host))
+                                }
+                        } else {
+                                return c.Status(502).Type("html").SendString(getNiceErrorPage("502", host))
+                        }
+                } else {
+                        redirectURL := "https://" + host
+                        if httpsPort != "443" {
+                                redirectURL += ":" + httpsPort
+                        }
+                        redirectURL += c.OriginalURL()
+                        return c.Redirect(redirectURL, fiber.StatusMovedPermanently)
                 }
-                redirectURL += c.OriginalURL()
-                return c.Redirect(redirectURL, fiber.StatusMovedPermanently)
         }
 
         // Handle custom redirect (301/302)
