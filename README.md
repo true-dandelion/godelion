@@ -1,97 +1,307 @@
 # Godelion - Go & Docker Container Management System
 
-[中文](#中文) | [English](#english)
+[中文](#chinese) | [English](#english)
+
+# Godelion
 
 ---
 
-<a name="中文"></a>
-## 🇨🇳 中文
+<a id="chinese"></a>
+## 中文
 
-### 项目简介
-**Godelion** 是一个轻量级、高性能的 Docker 容器管理系统。它旨在提供一个直观的 Web 界面来管理 Docker 容器、镜像、网络和数据卷，从而简化容器化应用的部署和运维工作。
+> Docker 容器管理面板 + 内置反向代理网关。
 
-### 目前进度
-目前我们已经完成了项目的基础脚手架搭建和核心架构设计。
+**Godelion** 是一个轻量级的自托管 Web 面板，可在同一仪表盘中管理 Docker 容器和配置反向代理路由。前端基于 Vue 3，后端基于 Go（Fiber），使用 SQLite 存储，无需外部数据库依赖。
 
-- [x] **项目初始化**：完成前端和后端项目目录结构的创建。
-- [x] **前端架构**：基于 Vue 3 + TypeScript + Vite 搭建，集成了 Tailwind CSS 进行样式开发，并配置了 Vue Router。
-- [x] **后端架构**：基于 Go 语言构建，提供 RESTful API 服务，已完成基础的数据库连接和中间件配置。
-- [x] **核心脚本**：编写了 `start-godelion.sh` 脚本，支持一键同时启动前后端服务。
-- [x] **版本控制**：清理了冗余文件（如 `node_modules`、编译的二进制文件、编辑器配置等），并将纯净的代码库成功推送到 GitHub。
-- [ ] **Docker API 集成**：开发 Go 后端与 Docker 守护进程的通信逻辑。
-- [ ] **前端控制台**：开发容器状态监控、镜像管理、网络配置等页面。
+### 功能
 
-### 系统架构
-项目采用现代化的**前后端分离**架构。整体请求流程从用户侧出发，通过代理层最终访问到 Docker 容器，其树状访问流程如下：
+- **容器（工作负载）管理** — 通过 Web UI 部署、启动、停止和删除 Docker 容器。内置 Node.js、Python、Go、PHP、静态站点（Nginx）、C/C++ 及通用二进制等运行环境的预配置默认值。
+- **反向代理网关** — 创建基于域名的代理规则，支持轮询负载均衡、TLS 终止、HTTP→HTTPS 重定向及自定义 301/302 重定向。
+- **SSL 证书管理** — 上传和管理 PEM 格式的证书与密钥对，用于代理域名及面板本身。
+- **文件管理器** — 浏览、上传、下载、编辑、创建文件夹、移动和解压归档文件（zip/tgz），所有操作限定在用户独立存储目录内。
+- **Docker 守护进程控制** — 从 tar 包安装 Docker、启动/停止/重启 Docker 守护进程、在 UI 中编辑 `/etc/docker/daemon.json`。
+- **认证与安全** — 基于 JWT 的认证，可选 TOTP 双因素认证、通行密钥支持、IP 白名单（CIDR）、域名绑定、安全入口点强制访问、会话管理、密码复杂度与过期策略。
+- **审计日志** — 所有管理操作均被记录并可在面板中查看。
+- **系统监控** — 仪表盘展示容器数量、网关规则状态、SSL 证书过期时间、Docker 运行状态及系统整体健康度。
+- **守护进程（自动重启）** — 配套的守护进程监控 API 进程，崩溃时自动重启（最多尝试 5 次）。
 
-```mermaid
-flowchart TD
-    A[访问者 / 用户浏览器] -->|HTTP 请求| B(前端: Vue 3 + Vite)
-    B -->|API / WebSocket| C(代理服务: Go API 后端)
-    C -->|Docker SDK| D(Docker 守护进程)
-    D -->|管理/监控| E{目标 Docker 容器}
+### 技术栈
+
+| 层级 | 技术 |
+|---|---|
+| 前端 | Vue 3, TypeScript, Element Plus, Tailwind CSS, Pinia, Vite |
+| 后端 | Go 1.25, Fiber v2 |
+| 数据库 | SQLite（纯 Go 实现，无需 CGO） via GORM |
+| 容器 | Docker Engine SDK for Go |
+| 认证 | JWT (golang-jwt), bcrypt, TOTP (pquerna/otp) |
+| 构建 | pnpm（前端），Go 工具链（后端） |
+
+### 快速开始
+
+#### 环境要求
+
+- Go 1.25+
+- pnpm
+- Docker（使用容器管理功能时需要）
+- Linux（推荐，附带 systemd 单元文件）
+
+#### 开发模式
+
+```bash
+# 终端 1：启动 Go API 服务
+cd api
+go run main.go
+
+# 终端 2：启动 Vue 开发服务器
+pnpm install
+pnpm run dev
 ```
 
-1. **前端 (Web UI)**
-   - **技术栈**：Vue 3 (Composition API), TypeScript, Vite, Tailwind CSS。
-   - **职责**：提供用户界面，用于可视化地监控和管理 Docker 资源。
-   - **目录**：`src/`（Vue 组件、视图、路由、状态管理），`public/`（静态资源）。
+或使用提供的脚本：
 
-2. **后端 (API Service)**
-   - **技术栈**：Go (Golang)。
-   - **职责**：处理核心业务逻辑，通过 Docker SDK for Go 与宿主机的 Docker 引擎进行交互，并为前端提供 RESTful API 接口。
-   - **目录**：`api/`（包含 `controllers`, `models`, `services`, `middleware`, `db` 等模块）。
+```bash
+./start-godelion.sh
+```
 
-3. **数据存储**
-   - **技术栈**：SQLite（目前通过 `godelion.db` 文件体现）。
-   - **职责**：在本地轻量级存储系统配置、用户账号和操作日志，无需额外部署大型数据库服务。
+#### 生产构建
 
-4. **启动与部署**
-   - **脚本管理**：通过 `start-godelion.sh` 统一管理 Vite 开发服务器和 Go API 服务器的并发启动。
+```bash
+# 构建前端
+pnpm run build
+
+# 将 dist/ 目录复制到 api/godelion_public/
+# API 会自动服务 godelion_public/ 下的静态文件
+
+# 构建 Go 后端
+cd api
+go build -o godelion main.go
+
+# 运行
+./godelion
+```
+
+#### systemd 安装
+
+```bash
+sudo cp godelion.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now godelion
+```
+
+#### 守护进程（可选）
+
+`daemon/` 目录下提供了一个看门狗守护进程，用于监控并在主 API 崩溃时自动重启。详见 `daemon/README.md`。
+
+```bash
+# 构建
+cd daemon
+go build -o godelion-daemon main.go
+
+# 安装服务
+sudo cp godelion-daemon.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now godelion-daemon
+```
+
+### 默认凭据
+
+| 用户名 | 密码 |
+|---|---|
+| `admin` | `admin123` |
+
+**首次登录后请立即修改。**
+
+### 配置
+
+面板运行时配置通过 Web UI（**Settings → Panel Config**）完成。关键配置项：
+
+- **Port** — 面板监听端口（默认：`9960`）
+- **HTTPS** — 为面板启用 HTTPS（需要 SSL 证书）
+- **Panel SSL Certificate** — 选择已上传的证书用于面板 HTTPS
+
+配置变更即时生效，无需重启系统级服务。
+
+### 项目结构
+
+```
+godelion/
+├── api/                    # Go 后端
+│   ├── main.go             # 入口，Fiber 应用，路由
+│   ├── controllers/        # HTTP 处理器（auth, workload, gateway, ssl, config, system, storage, audit）
+│   ├── services/           # 业务逻辑（docker, proxy, port proxy）
+│   ├── middleware/          # 认证、IP 白名单、域名绑定、安全入口
+│   ├── models/             # GORM 模型
+│   ├── db/                 # SQLite 初始化与迁移
+│   └── session/            # d_delion_id 会话存储
+├── src/                    # Vue 3 前端
+│   ├── views/              # 页面组件
+│   ├── api/                # Axios API 客户端
+│   ├── router/             # 路由配置
+│   ├── store/              # Pinia 状态管理
+│   └── components/         # 通用组件
+├── daemon/                 # 看门狗守护进程（纯 Go 标准库）
+├── public/                 # 静态资源
+├── package.json
+├── vite.config.ts
+├── tailwind.config.js
+└── godelion.service        # systemd 单元文件
+```
+
+### 安全建议
+
+- 立即修改默认 `admin` 密码
+- 生产环境务必启用 HTTPS
+- 使用 IP 白名单限制可访问的信任网络
+- 配置安全入口点增加额外访问控制层
+- 定期轮换 SSL 证书和管理员凭据
 
 ---
 
-<a name="english"></a>
-## 🇬🇧 English
+<a id="english"></a>
+## English
 
-### Overview
-**Godelion** is a lightweight, high-performance Docker container management system. It aims to provide an intuitive web-based interface for managing Docker containers, images, networks, and volumes, simplifying the deployment and operation of containerized applications.
+> Docker container management panel with built-in reverse proxy gateway.
 
-### Current Progress
-We have completed the foundational scaffolding and core structural design of the project.
+**Godelion** is a lightweight self-hosted web panel for managing Docker containers and configuring reverse proxy routes — all from a single dashboard. It comes with a Vue 3 frontend and a Go (Fiber) backend, with SQLite storage and zero external database dependencies.
 
-- [x] **Project Initialization**: Frontend and backend project structures created.
-- [x] **Frontend Architecture**: Built with Vue 3 + TypeScript + Vite, integrated with Tailwind CSS for styling, and Vue Router for routing.
-- [x] **Backend Architecture**: Built with Go, providing RESTful API services. Basic database connection and middleware setups are in place.
-- [x] **Core Scripting**: Created `start-godelion.sh` for one-click concurrent startup of both frontend and backend services.
-- [x] **Version Control**: Cleaned up unnecessary files (e.g., `node_modules`, binary builds, editor configurations) and successfully pushed the clean codebase to GitHub.
-- [ ] **Docker API Integration**: Implementing Go backend communication with the Docker Daemon.
-- [ ] **Frontend Dashboard**: Developing pages for container status, image management, and network configuration.
+### Features
 
-### System Architecture
-The project adopts a modern **Frontend-Backend Separation** architecture, with a clear flow of requests from the user to the underlying Docker containers:
+- **Container (Workload) Management** — Deploy, start, stop, and delete Docker containers via a web UI. Supports Node.js, Python, Go, PHP, static sites (Nginx), C/C++, and general binaries with pre-configured defaults.
+- **Reverse Proxy Gateway** — Create domain-based proxy rules with round-robin load balancing, TLS termination, HTTP→HTTPS redirects, and custom 301/302 redirects.
+- **SSL Certificate Management** — Upload and manage PEM certificate+key pairs for proxied domains and the panel itself.
+- **File Manager** — Browse, upload, download, edit, create folders, move, and extract archives (zip/tgz) in per-user storage.
+- **Docker Daemon Control** — Install Docker from tarball, start/stop/restart the Docker daemon, edit `/etc/docker/daemon.json` from the UI.
+- **Authentication & Security** — JWT-based auth with optional TOTP 2FA, passkey support, IP whitelisting (CIDR), domain binding, secure entrypoint enforcement, session management, password complexity and expiry policies.
+- **Audit Logging** — All administrative actions are recorded and viewable in the panel.
+- **System Monitoring** — Dashboard shows container counts, gateway rule status, SSL certificate expiry, Docker health, and overall system health.
+- **Daemon (Auto-Restart)** — A companion daemon monitors the API process and restarts it on crash (up to 5 attempts).
 
-```mermaid
-flowchart TD
-    A[Visitor / User Browser] -->|HTTP Request| B(Frontend: Vue 3 + Vite)
-    B -->|API / WebSocket| C(Proxy: Go API Service)
-    C -->|Docker SDK| D(Docker Daemon)
-    D -->|Manage/Monitor| E{Target Docker Container}
+### Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Vue 3, TypeScript, Element Plus, Tailwind CSS, Pinia, Vite |
+| Backend | Go 1.25, Fiber v2 |
+| Database | SQLite (pure Go, no CGO) via GORM |
+| Container | Docker Engine SDK for Go |
+| Auth | JWT (golang-jwt), bcrypt, TOTP (pquerna/otp) |
+| Build | pnpm (frontend), Go toolchain (backend) |
+
+### Quick Start
+
+#### Prerequisites
+
+- Go 1.25+
+- pnpm
+- Docker (for container management features)
+- Linux (recommended; systemd units included)
+
+#### Development
+
+```bash
+# Terminal 1: Start the Go API server
+cd api
+go run main.go
+
+# Terminal 2: Start the Vue dev server
+pnpm install
+pnpm run dev
 ```
 
-1. **Frontend (Web UI)**
-   - **Tech Stack**: Vue 3 (Composition API), TypeScript, Vite, Tailwind CSS.
-   - **Role**: Provides the user interface for monitoring and managing Docker resources visually.
-   - **Directory**: `src/` (Vue components, views, routers, store), `public/` (static assets).
+Or use the provided script:
 
-2. **Backend (API Service)**
-   - **Tech Stack**: Go (Golang).
-   - **Role**: Handles business logic, interacts with the Docker engine via Docker SDK for Go, and provides RESTful APIs for the frontend.
-   - **Directory**: `api/` (contains `controllers`, `models`, `services`, `middleware`, `db`, etc.).
+```bash
+./start-godelion.sh
+```
 
-3. **Data Storage**
-   - **Tech Stack**: SQLite (currently indicated by `godelion.db`).
-   - **Role**: Stores system configurations, user accounts, and operational logs locally without needing a heavy database server.
+#### Production Build
 
-4. **Startup & Deployment**
-   - **Script**: `start-godelion.sh` manages the simultaneous execution of the Vite dev server and the Go API server.
+```bash
+# Build frontend
+pnpm run build
+
+# Copy dist/ to api/godelion_public/
+# The API serves static files from godelion_public/ automatically.
+
+# Build Go backend
+cd api
+go build -o godelion main.go
+
+# Run
+./godelion
+```
+
+#### systemd Installation
+
+```bash
+sudo cp godelion.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now godelion
+```
+
+#### Daemon (optional)
+
+A watchdog daemon is available under `daemon/` that monitors and auto-restarts the main API if it crashes. See `daemon/README.md` for details.
+
+```bash
+# Build
+cd daemon
+go build -o godelion-daemon main.go
+
+# Install service
+sudo cp godelion-daemon.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now godelion-daemon
+```
+
+### Default Credentials
+
+| Username | Password |
+|---|---|
+| `admin` | `admin123` |
+
+**Change these immediately after first login.**
+
+### Configuration
+
+The panel is configured at runtime through the web UI (**Settings → Panel Config**). Key settings:
+
+- **Port** — panel listen port (default: `9960`)
+- **HTTPS** — enable HTTPS for the panel itself (requires an SSL certificate)
+- **Panel SSL Certificate** — select which uploaded cert to use for panel HTTPS
+
+Configuration changes apply without restarting the OS-level service.
+
+### Project Structure
+
+```
+godelion/
+├── api/                    # Go backend
+│   ├── main.go             # Entry point, Fiber app, routing
+│   ├── controllers/        # HTTP handlers
+│   ├── services/           # Business logic
+│   ├── middleware/          # Auth, IP whitelist, domain binding, secure entrypoint
+│   ├── models/             # GORM models
+│   ├── db/                 # SQLite initialization and migration
+│   └── session/            # d_delion_id session store
+├── src/                    # Vue 3 frontend
+│   ├── views/              # Page components
+│   ├── api/                # Axios API client
+│   ├── router/             # Vue Router config
+│   ├── store/              # Pinia stores
+│   └── components/         # Reusable components
+├── daemon/                 # Watchdog daemon (Go stdlib only)
+├── public/                 # Static assets
+├── package.json
+├── vite.config.ts
+├── tailwind.config.js
+└── godelion.service        # systemd unit
+```
+
+### Security
+
+- Change the default `admin` password immediately.
+- Enable HTTPS in production.
+- Use the IP whitelist feature to restrict access to trusted networks.
+- Configure the secure entrypoint for an additional layer of access control.
+- Regularly rotate SSL certificates and admin credentials.
