@@ -34,14 +34,14 @@
 | 数据库 | SQLite（纯 Go 实现，无需 CGO） via GORM |
 | 容器 | Docker Engine SDK for Go |
 | 认证 | JWT (golang-jwt), bcrypt, TOTP (pquerna/otp) |
-| 构建 | pnpm（前端），Go 工具链（后端） |
+| 构建 | npm（前端），Go 工具链（后端） |
 
 ### 快速开始
 
 #### 环境要求
 
 - Go 1.25+
-- pnpm
+- npm
 - Docker（使用容器管理功能时需要）
 - Linux（推荐，附带 systemd 单元文件）
 
@@ -53,8 +53,8 @@ cd api
 go run main.go
 
 # 终端 2：启动 Vue 开发服务器
-pnpm install
-pnpm run dev
+npm install
+npm run dev
 ```
 
 或使用提供的脚本：
@@ -67,7 +67,7 @@ pnpm run dev
 
 ```bash
 # 构建前端
-pnpm run build
+npm run build
 
 # 将 dist/ 目录复制到 api/godelion_public/
 # API 会自动服务 godelion_public/ 下的静态文件
@@ -187,14 +187,14 @@ godelion/
 | Database | SQLite (pure Go, no CGO) via GORM |
 | Container | Docker Engine SDK for Go |
 | Auth | JWT (golang-jwt), bcrypt, TOTP (pquerna/otp) |
-| Build | pnpm (frontend), Go toolchain (backend) |
+| Build | npm (frontend), Go toolchain (backend) |
 
 ### Quick Start
 
 #### Prerequisites
 
 - Go 1.25+
-- pnpm
+- npm
 - Docker (for container management features)
 - Linux (recommended; systemd units included)
 
@@ -206,8 +206,8 @@ cd api
 go run main.go
 
 # Terminal 2: Start the Vue dev server
-pnpm install
-pnpm run dev
+npm install
+npm run dev
 ```
 
 Or use the provided script:
@@ -220,7 +220,7 @@ Or use the provided script:
 
 ```bash
 # Build frontend
-pnpm run build
+npm run build
 
 # Copy dist/ to api/godelion_public/
 # The API serves static files from godelion_public/ automatically.
