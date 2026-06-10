@@ -157,6 +157,8 @@ godelion/
 
 ---
 
+[中文](#chinese) | [English](#english)
+
 <a id="english"></a>
 ## English
 
